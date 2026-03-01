@@ -104,6 +104,7 @@
           {
             "group": "Endpoints",
             "pages": [
+              "api/account",
               "api/servers",
               "api/nodes",
               "api/locations",

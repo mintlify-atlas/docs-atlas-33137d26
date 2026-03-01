@@ -1,0 +1,517 @@
+---
+title: Account Management
+description: Manage user accounts and profiles
+---
+
+## User Profile Endpoints
+
+### Get Current User
+
+```http
+GET /api/account/me
+```
+
+Retrieve the authenticated user's profile information.
+
+**Authentication Required**: Yes
+
+**Response**
+
+<ResponseField name="id" type="string">
+  User ID (CUID)
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's display name
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="emailVerified" type="boolean">
+  Whether the email has been verified
+</ResponseField>
+
+<ResponseField name="image" type="string">
+  Profile image URL (optional)
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  User role: `user` or `admin`
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  Account creation timestamp (ISO 8601)
+</ResponseField>
+
+<ResponseField name="_count" type="object">
+  <Expandable title="servers">
+    <ResponseField name="servers" type="number">
+      Number of servers owned by the user
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.stellarstack.app/api/account/me \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "clx1234567890",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "emailVerified": true,
+  "image": "https://example.com/avatar.jpg",
+  "role": "user",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "_count": {
+    "servers": 5
+  }
+}
+```
+</ResponseExample>
+
+---
+
+### Update Current User
+
+```http
+PATCH /api/account/me
+```
+
+Update the authenticated user's profile information.
+
+**Authentication Required**: Yes
+
+**Request Body**
+
+<ParamField body="name" type="string">
+  Display name (1-100 characters)
+</ParamField>
+
+<ParamField body="image" type="string">
+  Profile image URL (must be valid URL)
+</ParamField>
+
+**Response**
+
+Returns the updated user object with `id`, `name`, `email`, `image`, and `role` fields.
+
+<RequestExample>
+```bash cURL
+curl -X PATCH https://api.stellarstack.app/api/account/me \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jane Doe",
+    "image": "https://example.com/new-avatar.jpg"
+  }'
+```
+</RequestExample>
+
+---
+
+### Delete Current User
+
+```http
+DELETE /api/account/me
+```
+
+Delete the authenticated user's account. This action is irreversible.
+
+**Authentication Required**: Yes
+
+**Restrictions**
+- Cannot delete account if user owns any servers
+- Must delete or transfer all servers first
+
+**Response**
+
+<ResponseField name="success" type="boolean">
+  `true` if account was successfully deleted
+</ResponseField>
+
+**Error Responses**
+
+- `400 Bad Request` - User has active servers
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.stellarstack.app/api/account/me \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success
+{
+  "success": true
+}
+```
+
+```json Error - Active Servers
+{
+  "error": "Cannot delete account with active servers"
+}
+```
+</ResponseExample>
+
+---
+
+## Admin User Management
+
+<Warning>
+  These endpoints require **admin** role. Regular users cannot access admin-only endpoints.
+</Warning>
+
+### List All Users
+
+```http
+GET /api/account/users
+```
+
+Retrieve a list of all users in the system.
+
+**Authentication Required**: Admin only
+
+**Response**
+
+Returns an array of user objects, each containing:
+
+<ResponseField name="id" type="string">User ID</ResponseField>
+<ResponseField name="name" type="string">Display name</ResponseField>
+<ResponseField name="email" type="string">Email address</ResponseField>
+<ResponseField name="emailVerified" type="boolean">Email verification status</ResponseField>
+<ResponseField name="image" type="string">Profile image URL</ResponseField>
+<ResponseField name="role" type="string">User role</ResponseField>
+<ResponseField name="createdAt" type="string">Account creation timestamp</ResponseField>
+<ResponseField name="_count" type="object">
+  Server count object
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.stellarstack.app/api/account/users \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN"
+```
+</RequestExample>
+
+---
+
+### Create User
+
+```http
+POST /api/account/users
+```
+
+Create a new user account (admin only).
+
+**Authentication Required**: Admin only
+
+**Request Body**
+
+<ParamField body="name" type="string" required>
+  User's display name (1-100 characters)
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be unique)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (minimum 8 characters)
+</ParamField>
+
+<ParamField body="role" type="string" default="user">
+  User role: `user` or `admin`
+</ParamField>
+
+**Response**
+
+Returns the created user object with `201 Created` status. Admin-created users have their email automatically verified.
+
+**Error Responses**
+
+- `400 Bad Request` - Email already exists or validation failed
+- `500 Internal Server Error` - Failed to create user
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.stellarstack.app/api/account/users \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New User",
+    "email": "newuser@example.com",
+    "password": "securepassword123",
+    "role": "user"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success
+{
+  "id": "clx9876543210",
+  "name": "New User",
+  "email": "newuser@example.com",
+  "emailVerified": true,
+  "role": "user",
+  "createdAt": "2024-03-01T15:45:00.000Z"
+}
+```
+
+```json Error - Email Exists
+{
+  "error": "A user with this email already exists"
+}
+```
+</ResponseExample>
+
+---
+
+### Get User
+
+```http
+GET /api/account/users/:id
+```
+
+Retrieve detailed information about a specific user.
+
+**Authentication Required**: Admin only
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  User ID
+</ParamField>
+
+**Response**
+
+Returns user object including owned servers list.
+
+<ResponseField name="servers" type="array">
+  Array of server objects owned by the user
+  <Expandable title="Server Object">
+    <ResponseField name="id" type="string">Server ID</ResponseField>
+    <ResponseField name="name" type="string">Server name</ResponseField>
+    <ResponseField name="status" type="string">Current status</ResponseField>
+    <ResponseField name="node" type="object">Node information</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.stellarstack.app/api/account/users/clx1234567890 \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN"
+```
+</RequestExample>
+
+---
+
+### Update User
+
+```http
+PATCH /api/account/users/:id
+```
+
+Update a user's profile or role (admin only).
+
+**Authentication Required**: Admin only
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  User ID
+</ParamField>
+
+**Request Body**
+
+<ParamField body="name" type="string">
+  Display name (1-100 characters)
+</ParamField>
+
+<ParamField body="email" type="string">
+  Email address
+</ParamField>
+
+<ParamField body="role" type="string">
+  User role: `user` or `admin`
+</ParamField>
+
+<ParamField body="image" type="string">
+  Profile image URL
+</ParamField>
+
+**Response**
+
+Returns the updated user object.
+
+<RequestExample>
+```bash cURL
+curl -X PATCH https://api.stellarstack.app/api/account/users/clx1234567890 \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "admin"
+  }'
+```
+</RequestExample>
+
+---
+
+### Delete User
+
+```http
+DELETE /api/account/users/:id
+```
+
+Delete a user account (admin only).
+
+**Authentication Required**: Admin only
+
+**Path Parameters**
+
+<ParamField path="id" type="string" required>
+  User ID
+</ParamField>
+
+**Restrictions**
+- Admins cannot delete their own account via this endpoint
+- User must not have associated servers
+
+**Response**
+
+<ResponseField name="success" type="boolean">
+  `true` if user was successfully deleted
+</ResponseField>
+
+**Error Responses**
+
+- `400 Bad Request` - Cannot delete own account or user has servers
+- `404 Not Found` - User not found
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.stellarstack.app/api/account/users/clx1234567890 \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN"
+```
+</RequestExample>
+
+---
+
+## Admin Email Management
+
+### Get Email Status
+
+```http
+GET /api/account/admin/email/status
+```
+
+Check email configuration status.
+
+**Authentication Required**: Admin only
+
+**Response**
+
+<ResponseField name="configured" type="boolean">
+  Whether email is configured
+</ResponseField>
+
+<ResponseField name="provider" type="string">
+  Email provider: `smtp`, `resend`, `sendgrid`, or `none`
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.stellarstack.app/api/account/admin/email/status \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "configured": true,
+  "provider": "smtp"
+}
+```
+</ResponseExample>
+
+---
+
+### Send Test Email
+
+```http
+POST /api/account/admin/email/test
+```
+
+Send a test email to verify email configuration.
+
+**Authentication Required**: Admin only
+
+**Request Body**
+
+<ParamField body="email" type="string" required>
+  Email address to send test email to
+</ParamField>
+
+**Response**
+
+<ResponseField name="success" type="boolean">
+  `true` if email was sent successfully
+</ResponseField>
+
+<ResponseField name="messageId" type="string">
+  Message ID from email provider (if available)
+</ResponseField>
+
+**Error Responses**
+
+- `400 Bad Request` - Invalid email format or missing email address
+- `500 Internal Server Error` - Failed to send email
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.stellarstack.app/api/account/admin/email/test \
+  -H "Authorization: Bearer ADMIN_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json Success
+{
+  "success": true,
+  "messageId": "abc123@smtp.provider.com"
+}
+```
+
+```json Error
+{
+  "error": "Failed to send test email"
+}
+```
+</ResponseExample>
+
+---
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/api/authentication">
+    Learn about authentication methods
+  </Card>
+  <Card title="User Management" icon="users" href="/user-management/authentication">
+    User-facing authentication guide
+  </Card>
+</CardGroup>
