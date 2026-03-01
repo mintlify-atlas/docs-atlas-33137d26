@@ -1,0 +1,167 @@
+{
+  "projectType": "saas",
+  "projectName": "StellarStack",
+  "projectDescription": "Modern, open-source game server management panel with real-time monitoring, automated backups, and granular permissions",
+  "theme": "aspen",
+  "primaryColor": "#E36002",
+  "lightColor": "#FF7420",
+  "darkColor": "#C25002",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "how-it-works",
+              "tech-stack"
+            ]
+          },
+          {
+            "group": "Getting Started",
+            "pages": [
+              "getting-started/installation",
+              "getting-started/quick-start",
+              "getting-started/configuration",
+              "getting-started/first-server"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/server-management",
+              "features/node-management",
+              "features/blueprints",
+              "features/backups",
+              "features/file-manager",
+              "features/console",
+              "features/permissions"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "user-management/authentication",
+              "user-management/subusers",
+              "user-management/oauth"
+            ]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "automation/scheduled-tasks",
+              "automation/webhooks",
+              "automation/auto-shutdown"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/daemon-setup",
+              "advanced/docker-configuration",
+              "advanced/custom-domains",
+              "advanced/plugins",
+              "advanced/security"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/self-hosting",
+              "deployment/docker-compose",
+              "deployment/environment-variables",
+              "deployment/production-checklist"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/rate-limits",
+              "api/websockets"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/servers",
+              "api/nodes",
+              "api/locations",
+              "api/blueprints",
+              "api/backups",
+              "api/members",
+              "api/webhooks",
+              "api/domains",
+              "api/plugins",
+              "api/settings",
+              "api/analytics"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/contributing",
+              "development/architecture",
+              "development/monorepo-structure",
+              "development/local-development"
+            ]
+          },
+          {
+            "group": "Plugin Development",
+            "pages": [
+              "development/plugin-sdk",
+              "development/plugin-hooks",
+              "development/plugin-ui",
+              "development/plugin-api"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-server dashboard with real-time monitoring",
+    "Rust daemon for Docker container orchestration",
+    "45+ granular permission nodes for access control",
+    "Automated backups with retention policies",
+    "Real-time WebSocket console and stats",
+    "Blueprint system for common game servers",
+    "OAuth support (Google, GitHub, Discord) with 2FA and passkeys",
+    "REST API with full panel feature parity",
+    "Plugin system for custom game support",
+    "SFTP file access for server management"
+  ],
+  "publicApiSurface": [
+    "POST /api/servers - Create server",
+    "GET /api/servers/:id - Get server details",
+    "POST /api/servers/:id/power - Power control (start/stop/restart)",
+    "POST /api/servers/:id/command - Send console command",
+    "GET /api/servers/:id/stats - Real-time server stats",
+    "POST /api/backups - Create backup",
+    "GET /api/backups - List backups",
+    "POST /api/backups/:id/restore - Restore backup",
+    "GET /api/nodes - List nodes",
+    "POST /api/nodes - Register node",
+    "GET /api/blueprints - List blueprints",
+    "POST /api/blueprints - Create blueprint",
+    "POST /api/members/invite - Invite subuser",
+    "PUT /api/members/:id/permissions - Update permissions",
+    "POST /api/webhooks - Create webhook",
+    "GET /api/analytics - Server analytics",
+    "WS /ws/console/:serverId - Console WebSocket",
+    "WS /ws/stats/:serverId - Stats WebSocket"
+  ]
+}
