@@ -1,0 +1,589 @@
+---
+title: Plugin Hooks & Events
+description: Available hooks and events in the StellarStack plugin system
+---
+
+# Plugin Hooks & Events
+
+Hooks allow plugins to react to events happening in StellarStack. When an event occurs (like a server starting), all registered hook handlers are executed in priority order.
+
+## Hook System Overview
+
+StellarStack uses a WordPress-inspired hook system with two types:
+
+- **Action Hooks** - Execute code when events occur (fire-and-forget)
+- **Filter Hooks** - Transform data as it passes through the system
+
+### Registering Action Hooks
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  context.log.info(`Server ${ctx.serverId} started`);
+}, "normal");
+```
+
+### Registering Filter Hooks
+
+```typescript
+context.addFilter("server:startup:command", async (command, ctx) => {
+  return command + " --custom-flag";
+}, "normal");
+```
+
+## Hook Priority
+
+Control the order hooks execute with priority levels:
+
+- `"critical"` - Execute first (priority 0)
+- `"high"` - Execute early (priority 1)
+- `"normal"` - Default priority (priority 2)
+- `"low"` - Execute last (priority 3)
+
+```typescript
+context.on("server:afterStart", handler, "high");
+```
+
+## Hook Context
+
+All hook handlers receive a `HookContext` object:
+
+```typescript
+interface HookContext {
+  event: PluginHookEvent;           // Event name
+  serverId?: string;                // Server ID (if applicable)
+  userId?: string;                  // User ID (if applicable)
+  data: Record<string, unknown>;    // Event-specific data
+  timestamp: Date;                  // When the event occurred
+}
+```
+
+Example:
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  console.log(ctx.event);       // "server:afterStart"
+  console.log(ctx.serverId);    // "srv_abc123"
+  console.log(ctx.timestamp);   // 2024-03-15T10:30:00.000Z
+  console.log(ctx.data);        // { status: "running", ... }
+});
+```
+
+## Available Hooks
+
+### Server Lifecycle Hooks
+
+#### server:beforeStart
+
+Triggered before a server starts.
+
+```typescript
+context.on("server:beforeStart", async (ctx) => {
+  context.log.info(`Server ${ctx.serverId} is about to start`);
+  // ctx.data contains: { serverId, serverName, blueprintId }
+});
+```
+
+**Use cases:**
+- Validate server configuration
+- Create pre-start backups
+- Check system resources
+
+#### server:afterStart
+
+Triggered after a server successfully starts.
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  await context.api.servers.sendCommand(ctx.serverId!, "say Server online!");
+  // ctx.data contains: { serverId, pid, startTime }
+});
+```
+
+**Use cases:**
+- Send welcome messages
+- Load server plugins/mods
+- Update external status pages
+- Record analytics
+
+#### server:beforeStop
+
+Triggered before a server stops.
+
+```typescript
+context.on("server:beforeStop", async (ctx) => {
+  // Give players warning
+  await context.api.servers.sendCommand(
+    ctx.serverId!,
+    "say Server stopping in 10 seconds!"
+  );
+  await new Promise(resolve => setTimeout(resolve, 10000));
+});
+```
+
+**Use cases:**
+- Warn online players
+- Save world data
+- Create backups
+
+#### server:afterStop
+
+Triggered after a server stops.
+
+```typescript
+context.on("server:afterStop", async (ctx) => {
+  context.log.info(`Server ${ctx.serverId} stopped`);
+  // ctx.data contains: { serverId, exitCode, stopTime }
+});
+```
+
+**Use cases:**
+- Clean up temporary files
+- Upload logs/backups
+- Update monitoring systems
+
+#### server:beforeRestart
+
+Triggered before a server restarts.
+
+```typescript
+context.on("server:beforeRestart", async (ctx) => {
+  await context.api.storage.set(`restart_${ctx.serverId}`, Date.now());
+});
+```
+
+#### server:afterRestart
+
+Triggered after a server successfully restarts.
+
+```typescript
+context.on("server:afterRestart", async (ctx) => {
+  const startTime = await context.api.storage.get(`restart_${ctx.serverId}`);
+  context.log.info(`Restart took ${Date.now() - startTime}ms`);
+});
+```
+
+### Server Management Hooks
+
+#### server:beforeInstall
+
+Triggered before a new server is installed.
+
+```typescript
+context.on("server:beforeInstall", async (ctx) => {
+  // ctx.data contains: { serverId, blueprintId, config }
+  context.log.info(`Installing ${ctx.data.blueprintId}`);
+});
+```
+
+**Use cases:**
+- Download required files
+- Prepare configurations
+- Validate disk space
+
+#### server:afterInstall
+
+Triggered after a server installation completes.
+
+```typescript
+context.on("server:afterInstall", async (ctx) => {
+  // Install default mods
+  await context.api.files.write(
+    ctx.serverId!,
+    "server.properties",
+    "motd=Welcome to the server!"
+  );
+});
+```
+
+**Use cases:**
+- Apply default configurations
+- Install plugins/mods
+- Set up initial files
+
+#### server:statusChange
+
+Triggered when server status changes (starting, running, stopping, stopped, crashed).
+
+```typescript
+context.on("server:statusChange", async (ctx) => {
+  // ctx.data contains: { serverId, oldStatus, newStatus }
+  context.log.info(
+    `Status: ${ctx.data.oldStatus} → ${ctx.data.newStatus}`
+  );
+});
+```
+
+**Use cases:**
+- Update dashboards
+- Send notifications
+- Track uptime metrics
+
+#### server:created
+
+Triggered when a new server is created.
+
+```typescript
+context.on("server:created", async (ctx) => {
+  // ctx.data contains: { serverId, name, blueprintId, ownerId }
+});
+```
+
+#### server:deleted
+
+Triggered when a server is deleted.
+
+```typescript
+context.on("server:deleted", async (ctx) => {
+  // Clean up plugin data for this server
+  await context.api.storage.delete(`server_${ctx.serverId}`);
+});
+```
+
+### Console Hooks
+
+#### server:console
+
+Triggered when console output is received from a server.
+
+```typescript
+context.on("server:console", async (ctx) => {
+  const line = ctx.data.line as string;
+  
+  // Parse player join events
+  if (line.includes("joined the game")) {
+    const player = line.match(/([\w]+) joined the game/)?.[1];
+    context.log.info(`Player ${player} joined ${ctx.serverId}`);
+  }
+});
+```
+
+**Data fields:**
+- `line` - Console output line
+- `timestamp` - When the line was output
+- `stream` - "stdout" or "stderr"
+
+**Use cases:**
+- Parse player events
+- Detect errors/crashes
+- Track chat messages
+- Monitor performance warnings
+
+### File Operation Hooks
+
+#### server:file:beforeWrite
+
+Triggered before a file is written.
+
+```typescript
+context.on("server:file:beforeWrite", async (ctx) => {
+  // ctx.data contains: { serverId, path, size }
+  context.log.info(`Writing ${ctx.data.path}`);
+});
+```
+
+#### server:file:afterWrite
+
+Triggered after a file is written.
+
+```typescript
+context.on("server:file:afterWrite", async (ctx) => {
+  // Restart server if config changed
+  if (ctx.data.path === "server.properties") {
+    context.log.info("Config changed, restart required");
+  }
+});
+```
+
+#### server:file:beforeDelete
+
+Triggered before a file is deleted.
+
+```typescript
+context.on("server:file:beforeDelete", async (ctx) => {
+  // ctx.data contains: { serverId, path }
+});
+```
+
+#### server:file:afterDelete
+
+Triggered after a file is deleted.
+
+```typescript
+context.on("server:file:afterDelete", async (ctx) => {
+  context.log.info(`Deleted ${ctx.data.path}`);
+});
+```
+
+### Backup Hooks
+
+#### server:backup:beforeCreate
+
+Triggered before a backup is created.
+
+```typescript
+context.on("server:backup:beforeCreate", async (ctx) => {
+  // ctx.data contains: { serverId, backupName }
+  await context.api.servers.sendCommand(
+    ctx.serverId!,
+    "save-off"
+  );
+});
+```
+
+#### server:backup:afterCreate
+
+Triggered after a backup is created.
+
+```typescript
+context.on("server:backup:afterCreate", async (ctx) => {
+  // ctx.data contains: { serverId, backupId, size }
+  await context.api.servers.sendCommand(ctx.serverId!, "save-on");
+  context.log.info(`Backup created: ${ctx.data.backupId}`);
+});
+```
+
+#### server:backup:beforeRestore
+
+Triggered before a backup is restored.
+
+```typescript
+context.on("server:backup:beforeRestore", async (ctx) => {
+  // ctx.data contains: { serverId, backupId }
+});
+```
+
+#### server:backup:afterRestore
+
+Triggered after a backup is restored.
+
+```typescript
+context.on("server:backup:afterRestore", async (ctx) => {
+  context.log.info(`Backup ${ctx.data.backupId} restored`);
+});
+```
+
+### Schedule Hooks
+
+#### server:schedule:beforeExecute
+
+Triggered before a scheduled task executes.
+
+```typescript
+context.on("server:schedule:beforeExecute", async (ctx) => {
+  // ctx.data contains: { serverId, scheduleId, action }
+});
+```
+
+#### server:schedule:afterExecute
+
+Triggered after a scheduled task executes.
+
+```typescript
+context.on("server:schedule:afterExecute", async (ctx) => {
+  // ctx.data contains: { serverId, scheduleId, success, error }
+  if (!ctx.data.success) {
+    context.log.error(`Schedule failed: ${ctx.data.error}`);
+  }
+});
+```
+
+### User Hooks
+
+#### user:login
+
+Triggered when a user logs in.
+
+```typescript
+context.on("user:login", async (ctx) => {
+  // ctx.data contains: { userId, email, ip }
+  context.log.info(`User ${ctx.data.email} logged in`);
+});
+```
+
+#### user:created
+
+Triggered when a new user account is created.
+
+```typescript
+context.on("user:created", async (ctx) => {
+  // ctx.data contains: { userId, email, role }
+});
+```
+
+### Plugin Hooks
+
+#### plugin:enabled
+
+Triggered when a plugin is enabled.
+
+```typescript
+context.on("plugin:enabled", async (ctx) => {
+  // ctx.data contains: { pluginId }
+  if (ctx.data.pluginId === "my-dependency") {
+    context.log.info("Dependency plugin enabled");
+  }
+});
+```
+
+#### plugin:disabled
+
+Triggered when a plugin is disabled.
+
+```typescript
+context.on("plugin:disabled", async (ctx) => {
+  // ctx.data contains: { pluginId }
+});
+```
+
+#### plugin:configUpdated
+
+Triggered when plugin configuration is updated.
+
+```typescript
+context.on("plugin:configUpdated", async (ctx) => {
+  // ctx.data contains: { pluginId, oldConfig, newConfig }
+});
+```
+
+## Filter Hooks
+
+Filters allow you to modify data before it's used:
+
+```typescript
+context.addFilter("server:startup:command", async (command, ctx) => {
+  // Add JVM flags for Minecraft servers
+  if (ctx.data.blueprint === "minecraft") {
+    return command + " -Xmx4G -Xms4G";
+  }
+  return command;
+});
+```
+
+### Available Filters
+
+- `server:startup:command` - Modify server startup command
+- `server:config:validate` - Validate server configuration
+- `backup:filename` - Modify backup file name
+- `console:output` - Filter console output before display
+
+## Error Handling
+
+Errors in hook handlers are automatically caught and logged:
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  try {
+    await riskyOperation();
+  } catch (error) {
+    context.log.error("Hook failed", error);
+    // Error won't crash the platform
+  }
+});
+```
+
+## Best Practices
+
+### 1. Use Appropriate Priorities
+
+```typescript
+// Critical operations that must run first
+context.on("server:beforeStart", validator, "critical");
+
+// Normal operations
+context.on("server:afterStart", logger, "normal");
+
+// Low-priority cleanup
+context.on("server:afterStop", cleanup, "low");
+```
+
+### 2. Handle Async Operations
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  // Wait for operation to complete
+  await context.api.servers.sendCommand(ctx.serverId!, "say Ready!");
+});
+```
+
+### 3. Avoid Blocking Operations
+
+```typescript
+// Bad - blocks event loop
+context.on("server:console", async (ctx) => {
+  await expensiveAnalysis(ctx.data.line);
+});
+
+// Good - queue for background processing
+context.on("server:console", async (ctx) => {
+  logQueue.push(ctx.data.line);
+});
+```
+
+### 4. Clean Up Resources
+
+```typescript
+async onDisable(context: PluginContext): Promise<void> {
+  // Stop timers, close connections, etc.
+  clearInterval(this.timer);
+}
+```
+
+## Complete Example: Player Tracker
+
+```typescript
+import { StellarPlugin, PluginContext } from "@stellarstack/plugin-sdk";
+
+export default class PlayerTracker extends StellarPlugin {
+  manifest = {
+    id: "player-tracker",
+    name: "Player Tracker",
+    version: "1.0.0",
+    description: "Track player join/leave events",
+    author: "StellarStack",
+    category: "monitoring" as const,
+    gameTypes: ["minecraft"],
+    permissions: ["activity.read"],
+  };
+
+  async onEnable(context: PluginContext): Promise<void> {
+    // Track player joins
+    context.on("server:console", async (ctx) => {
+      const line = ctx.data.line as string;
+      
+      if (line.includes("joined the game")) {
+        const player = line.match(/([\w]+) joined the game/)?.[1];
+        if (player) {
+          const players = await context.api.storage.get<string[]>("players") || [];
+          if (!players.includes(player)) {
+            players.push(player);
+            await context.api.storage.set("players", players);
+          }
+          
+          context.log.info(`${player} joined ${ctx.serverId}`);
+          await context.api.notify.toast(
+            ctx.serverId!,
+            `${player} joined the game`,
+            "info"
+          );
+        }
+      }
+      
+      if (line.includes("left the game")) {
+        const player = line.match(/([\w]+) left the game/)?.[1];
+        if (player) {
+          context.log.info(`${player} left ${ctx.serverId}`);
+        }
+      }
+    }, "normal");
+  }
+
+  async onDisable(context: PluginContext): Promise<void> {
+    context.log.info("Player tracker disabled");
+  }
+}
+```
+
+## Next Steps
+
+- [Plugin UI Extensions](/development/plugin-ui) - Create custom UI components
+- [Plugin API Reference](/development/plugin-api) - Complete API documentation

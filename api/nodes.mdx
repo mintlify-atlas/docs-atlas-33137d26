@@ -1,0 +1,640 @@
+---
+title: 'Nodes'
+description: 'Manage infrastructure nodes that host game servers'
+---
+
+## List Nodes
+
+<CodeGroup>
+```http GET /api/nodes
+GET /api/nodes
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+List all nodes in the system. Admin only.
+
+### Authentication
+
+Requires admin role.
+
+### Response
+
+<ResponseField name="nodes" type="array">
+  Array of node objects
+  
+  <Expandable title="Node Object">
+    <ResponseField name="id" type="string">Node UUID</ResponseField>
+    <ResponseField name="displayName" type="string">Human-readable node name</ResponseField>
+    <ResponseField name="host" type="string">Hostname or IP address</ResponseField>
+    <ResponseField name="port" type="number">Daemon port</ResponseField>
+    <ResponseField name="protocol" type="string">HTTP | HTTPS | HTTPS_PROXY</ResponseField>
+    <ResponseField name="sftpPort" type="number">SFTP port (default 2022)</ResponseField>
+    <ResponseField name="memoryLimit" type="string">Total memory in bytes (BigInt as string)</ResponseField>
+    <ResponseField name="diskLimit" type="string">Total disk in bytes (BigInt as string)</ResponseField>
+    <ResponseField name="cpuLimit" type="number">Total CPU cores</ResponseField>
+    <ResponseField name="uploadLimit" type="string">File upload limit in bytes</ResponseField>
+    <ResponseField name="isOnline" type="boolean">Whether node is currently online</ResponseField>
+    <ResponseField name="lastHeartbeat" type="string">Last heartbeat timestamp</ResponseField>
+    <ResponseField name="heartbeatLatency" type="number">Heartbeat latency in ms</ResponseField>
+    <ResponseField name="location" type="object">Location information</ResponseField>
+    <ResponseField name="_count" type="object">Resource counts</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "node-1",
+    "displayName": "US East 1",
+    "host": "node1.example.com",
+    "port": 8080,
+    "protocol": "HTTPS",
+    "sftpPort": 2022,
+    "memoryLimit": "34359738368",
+    "diskLimit": "107374182400",
+    "cpuLimit": 8,
+    "uploadLimit": "104857600",
+    "isOnline": true,
+    "lastHeartbeat": "2024-01-15T12:00:00Z",
+    "heartbeatLatency": 45,
+    "location": {
+      "id": "loc-1",
+      "name": "New York"
+    },
+    "_count": {
+      "servers": 12,
+      "allocations": 100
+    }
+  }
+]
+```
+</ResponseExample>
+
+---
+
+## Get Node
+
+<CodeGroup>
+```http GET /api/nodes/:id
+GET /api/nodes/{id}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get detailed information about a specific node.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Node UUID
+</ParamField>
+
+### Authentication
+
+Requires admin role.
+
+### Response
+
+Returns a detailed node object including allocations and servers.
+
+<ResponseExample>
+```json
+{
+  "id": "node-1",
+  "displayName": "US East 1",
+  "host": "node1.example.com",
+  "port": 8080,
+  "protocol": "HTTPS",
+  "sftpPort": 2022,
+  "memoryLimit": "34359738368",
+  "diskLimit": "107374182400",
+  "cpuLimit": 8,
+  "uploadLimit": "104857600",
+  "isOnline": true,
+  "location": {
+    "id": "loc-1",
+    "name": "New York",
+    "country": "US",
+    "city": "New York"
+  },
+  "allocations": [
+    {
+      "id": "alloc-1",
+      "ip": "0.0.0.0",
+      "port": 25565,
+      "assigned": true
+    }
+  ],
+  "servers": [
+    {
+      "id": "server-1",
+      "name": "Minecraft Server",
+      "status": "RUNNING"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+---
+
+## Create Node
+
+<CodeGroup>
+```http POST /api/nodes
+POST /api/nodes
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Create a new node. Returns authentication token ONCE - store it securely.
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+<ParamField body="displayName" type="string" required>
+  Human-readable node name (1-100 characters)
+</ParamField>
+
+<ParamField body="host" type="string" required>
+  Hostname or IP address
+</ParamField>
+
+<ParamField body="port" type="number" required>
+  Daemon port (1-65535)
+</ParamField>
+
+<ParamField body="protocol" type="string" default="HTTP">
+  HTTP | HTTPS | HTTPS_PROXY
+</ParamField>
+
+<ParamField body="sftpPort" type="number" default="2022">
+  SFTP port (1-65535)
+</ParamField>
+
+<ParamField body="memoryLimit" type="number" required>
+  Total memory in bytes
+</ParamField>
+
+<ParamField body="diskLimit" type="number" required>
+  Total disk in bytes
+</ParamField>
+
+<ParamField body="cpuLimit" type="number" required>
+  Total CPU cores
+</ParamField>
+
+<ParamField body="uploadLimit" type="number" default="104857600">
+  File upload limit in bytes (default 100MB)
+</ParamField>
+
+<ParamField body="locationId" type="string" required>
+  Location UUID
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "displayName": "US East 1",
+  "host": "node1.example.com",
+  "port": 8080,
+  "protocol": "HTTPS",
+  "sftpPort": 2022,
+  "memoryLimit": 34359738368,
+  "diskLimit": 107374182400,
+  "cpuLimit": 8,
+  "uploadLimit": 104857600,
+  "locationId": "loc-1"
+}
+```
+</RequestExample>
+
+### Response
+
+Returns the created node and authentication credentials.
+
+<ResponseField name="node" type="object">
+  The created node object
+</ResponseField>
+
+<ResponseField name="token_id" type="string">
+  Node UUID (use as token_id in daemon config)
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  Authentication token (use in daemon config.toml) - SHOWN ONLY ONCE
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Important warning about storing credentials
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "node": {
+    "id": "node-1",
+    "displayName": "US East 1",
+    "host": "node1.example.com",
+    "port": 8080
+  },
+  "token_id": "node-1",
+  "token": "48-character-random-token-abc123...",
+  "message": "Store token_id and token securely for your daemon config.toml. They will not be shown again."
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Validation failed
+- `404` - Location not found
+
+---
+
+## Update Node
+
+<CodeGroup>
+```http PATCH /api/nodes/:id
+PATCH /api/nodes/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Update node configuration.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Node UUID
+</ParamField>
+
+### Request Body
+
+All fields are optional.
+
+<ParamField body="displayName" type="string">
+  Human-readable node name
+</ParamField>
+
+<ParamField body="host" type="string">
+  Hostname or IP address
+</ParamField>
+
+<ParamField body="port" type="number">
+  Daemon port
+</ParamField>
+
+<ParamField body="protocol" type="string">
+  HTTP | HTTPS | HTTPS_PROXY
+</ParamField>
+
+<ParamField body="memoryLimit" type="number">
+  Total memory in bytes
+</ParamField>
+
+<ParamField body="diskLimit" type="number">
+  Total disk in bytes
+</ParamField>
+
+<ParamField body="cpuLimit" type="number">
+  Total CPU cores
+</ParamField>
+
+### Response
+
+Returns the updated node object.
+
+### Errors
+
+- `404` - Node not found
+
+---
+
+## Delete Node
+
+<CodeGroup>
+```http DELETE /api/nodes/:id
+DELETE /api/nodes/{id}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Delete a node. Cannot delete nodes with active servers.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Node UUID
+</ParamField>
+
+### Response
+
+```json
+{ "success": true }
+```
+
+### Errors
+
+- `400` - Node has associated servers
+- `404` - Node not found
+
+---
+
+## Regenerate Token
+
+<CodeGroup>
+```http POST /api/nodes/:id/regenerate-token
+POST /api/nodes/{id}/regenerate-token
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Regenerate node authentication token. Forces node offline until reconfigured.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Node UUID
+</ParamField>
+
+### Response
+
+<ResponseField name="token_id" type="string">
+  Node UUID
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  New authentication token - SHOWN ONLY ONCE
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Warning about storing credentials
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "token_id": "node-1",
+  "token": "new-48-character-random-token-xyz789...",
+  "message": "Store token_id and token securely for your daemon config.toml. They will not be shown again."
+}
+```
+</ResponseExample>
+
+---
+
+## Allocation Management
+
+### Add Single Allocation
+
+<CodeGroup>
+```http POST /api/nodes/:id/allocations
+POST /api/nodes/{id}/allocations
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Add a single network allocation to the node.
+
+#### Request Body
+
+<ParamField body="ip" type="string" required>
+  IP address (IPv4 or IPv6)
+</ParamField>
+
+<ParamField body="port" type="number" required>
+  Port number (1-65535)
+</ParamField>
+
+<ParamField body="alias" type="string">
+  Optional alias for the allocation
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "ip": "0.0.0.0",
+  "port": 25565,
+  "alias": "Minecraft Main"
+}
+```
+</RequestExample>
+
+#### Response
+
+Returns the created allocation object with status 201.
+
+#### Errors
+
+- `404` - Node not found
+- `409` - Allocation already exists
+
+### Add Allocation Range
+
+<CodeGroup>
+```http POST /api/nodes/:id/allocations/range
+POST /api/nodes/{id}/allocations/range
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Add a range of port allocations to the node.
+
+#### Request Body
+
+<ParamField body="ip" type="string" required>
+  IP address
+</ParamField>
+
+<ParamField body="startPort" type="number" required>
+  Starting port (1-65535)
+</ParamField>
+
+<ParamField body="endPort" type="number" required>
+  Ending port (1-65535, must be greater than or equal to startPort)
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "ip": "0.0.0.0",
+  "startPort": 25565,
+  "endPort": 25665
+}
+```
+</RequestExample>
+
+#### Response
+
+```json
+{
+  "created": 101
+}
+```
+
+### Delete Allocation
+
+<CodeGroup>
+```http DELETE /api/nodes/:id/allocations/:allocationId
+DELETE /api/nodes/{id}/allocations/{allocationId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Delete an allocation. Cannot delete assigned allocations.
+
+#### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Node UUID
+</ParamField>
+
+<ParamField path="allocationId" type="string" required>
+  Allocation UUID
+</ParamField>
+
+#### Response
+
+```json
+{ "success": true }
+```
+
+#### Errors
+
+- `400` - Cannot delete assigned allocation
+- `404` - Allocation not found
+
+---
+
+## Get Node Stats
+
+<CodeGroup>
+```http GET /api/nodes/:id/stats
+GET /api/nodes/{id}/stats
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get real-time statistics from the node daemon.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Node UUID
+</ParamField>
+
+### Response
+
+Returns node statistics from daemon.
+
+<ResponseExample>
+```json
+{
+  "cpu_usage": 45.2,
+  "memory_usage": 17179869184,
+  "memory_total": 34359738368,
+  "disk_usage": 53687091200,
+  "disk_total": 107374182400,
+  "network_rx": 1024000,
+  "network_tx": 2048000,
+  "uptime": 86400
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Node is offline
+- `404` - Node not found
+- `500` - Failed to connect to daemon
+
+---
+
+## Daemon Endpoints
+
+These endpoints are called by node daemons for authentication and status reporting.
+
+### Handshake
+
+<CodeGroup>
+```http POST /api/nodes/handshake
+POST /api/nodes/handshake
+Authorization: Bearer {token_id}.{token}
+```
+</CodeGroup>
+
+Daemon calls this on startup to verify connection and get configuration.
+
+#### Authentication
+
+Requires daemon authentication with Bearer token in format `{token_id}.{token}`.
+
+#### Response
+
+Returns node configuration and list of servers.
+
+### Heartbeat
+
+<CodeGroup>
+```http POST /api/nodes/heartbeat
+POST /api/nodes/heartbeat
+Authorization: Bearer {token_id}.{token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Daemon sends periodic heartbeats to maintain online status.
+
+#### Request Body
+
+<ParamField body="latency" type="number">
+  Optional: measured latency from previous heartbeat RTT
+</ParamField>
+
+#### Response
+
+```json
+{
+  "acknowledged": true,
+  "nodeId": "node-1",
+  "timestamp": "2024-01-15T12:00:00Z"
+}
+```
+
+### Report Server Status
+
+<CodeGroup>
+```http POST /api/nodes/servers/:serverId/status
+POST /api/nodes/servers/{serverId}/status
+Authorization: Bearer {token_id}.{token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Daemon reports server status changes.
+
+#### Request Body
+
+<ParamField body="status" type="string" required>
+  Server status
+</ParamField>
+
+<ParamField body="containerId" type="string">
+  Docker container ID
+</ParamField>
+
+#### Response
+
+```json
+{ "success": true }
+```

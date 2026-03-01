@@ -1,0 +1,645 @@
+---
+title: Creating UI Extensions
+description: Build custom UI components for StellarStack plugins
+---
+
+# Creating UI Extensions
+
+StellarStack plugins can extend the web interface with custom UI components. Add tabs to server pages, widgets to dashboards, admin pages, and settings panels.
+
+## UI Extension Points
+
+Plugins can add UI components at four extension points:
+
+1. **Server Tabs** - Tabs on the server management page
+2. **Server Widgets** - Dashboard widgets on the server overview
+3. **Admin Pages** - Full pages in the admin panel
+4. **Settings Panels** - Plugin configuration UI
+
+## Defining UI Extensions
+
+Declare UI components in your plugin manifest:
+
+```typescript
+manifest = {
+  id: "my-plugin",
+  name: "My Plugin",
+  // ... other fields
+  ui: {
+    serverTabs: [
+      {
+        id: "modpacks",
+        label: "Modpacks",
+        icon: "flame",
+        component: "ModpacksTab", // React component
+      },
+    ],
+    serverWidgets: [
+      {
+        id: "stats",
+        label: "Server Stats",
+        component: "StatsWidget",
+        size: "large", // small, medium, or large
+      },
+    ],
+    adminPages: [
+      {
+        id: "analytics",
+        label: "Analytics",
+        icon: "chart",
+        component: "AnalyticsPage",
+      },
+    ],
+    settingsPanel: "SettingsPanel",
+  },
+};
+```
+
+## Declarative UI Schema
+
+For common UI patterns, use declarative schemas instead of React components. This provides better security and reduces boilerplate.
+
+### Search and Install Pattern
+
+Used by CurseForge, Modrinth, and Steam Workshop plugins:
+
+```typescript
+ui: {
+  serverTabs: [
+    {
+      id: "modpacks",
+      label: "Modpacks",
+      icon: "flame",
+      uiSchema: {
+        type: "search-and-install",
+        searchAction: "search-modpacks",
+        detailAction: "get-modpack-details",
+        installAction: "install-modpack",
+        fields: {
+          searchInput: {
+            label: "Search Modpacks",
+            placeholder: "Search by name or author...",
+          },
+          resultCard: {
+            title: "name",
+            subtitle: "authors",
+            image: "logo",
+            description: "summary",
+            metadata: [
+              {
+                label: "Downloads",
+                field: "downloadCount",
+                format: "number",
+              },
+              {
+                label: "Updated",
+                field: "dateModified",
+                format: "date",
+              },
+            ],
+          },
+        },
+      },
+    },
+  ],
+}
+```
+
+The schema references action IDs that return data in expected formats:
+
+```typescript
+actions: [
+  {
+    id: "search-modpacks",
+    label: "Search Modpacks",
+    operations: [], // Custom search logic
+  },
+]
+```
+
+### Form Pattern
+
+For settings, configuration, or data entry:
+
+```typescript
+uiSchema: {
+  type: "form",
+  title: "Schedule Announcement",
+  fields: [
+    {
+      id: "message",
+      type: "textarea",
+      label: "Message",
+      required: true,
+      rows: 4,
+    },
+    {
+      id: "interval",
+      type: "number",
+      label: "Interval (minutes)",
+      min: 1,
+      max: 1440,
+      default: 30,
+    },
+    {
+      id: "enabled",
+      type: "boolean",
+      label: "Enabled",
+      default: true,
+    },
+  ],
+  submitAction: "save-announcement",
+  loadAction: "load-announcements",
+  submitLabel: "Save Announcement",
+}
+```
+
+### Data Table Pattern
+
+For displaying lists with actions:
+
+```typescript
+uiSchema: {
+  type: "data-table",
+  title: "Installed Mods",
+  loadAction: "list-mods",
+  columns: [
+    { id: "name", label: "Name", sortable: true },
+    { id: "version", label: "Version" },
+    { id: "author", label: "Author" },
+    { id: "size", label: "Size", format: "number" },
+  ],
+  pagination: { pageSize: 20 },
+  actions: [
+    {
+      id: "update",
+      label: "Update",
+      icon: "refresh",
+      actionId: "update-mod",
+    },
+    {
+      id: "delete",
+      label: "Delete",
+      icon: "trash",
+      actionId: "delete-mod",
+      dangerous: true,
+      confirmation: "Are you sure you want to delete this mod?",
+    },
+  ],
+}
+```
+
+### Stats Display Pattern
+
+For metrics and statistics:
+
+```typescript
+uiSchema: {
+  type: "stats",
+  loadAction: "get-server-stats",
+  items: [
+    {
+      id: "players",
+      label: "Total Players",
+      icon: "users",
+      format: "number",
+    },
+    {
+      id: "uptime",
+      label: "Uptime",
+      icon: "clock",
+      format: "duration",
+    },
+    {
+      id: "tps",
+      label: "TPS",
+      icon: "zap",
+      format: "number",
+      trend: "up",
+    },
+  ],
+}
+```
+
+### Compound Schema
+
+Combine multiple schemas:
+
+```typescript
+uiSchema: {
+  type: "compound",
+  layout: "vertical",
+  sections: [
+    {
+      title: "Server Statistics",
+      schema: {
+        type: "stats",
+        loadAction: "get-stats",
+        items: [/* ... */],
+      },
+    },
+    {
+      title: "Recent Activity",
+      schema: {
+        type: "data-table",
+        loadAction: "get-activity",
+        columns: [/* ... */],
+      },
+    },
+  ],
+}
+```
+
+## Field Types
+
+Available field types for forms:
+
+### String Field
+
+```typescript
+{
+  id: "name",
+  type: "string",
+  label: "Server Name",
+  placeholder: "Enter name...",
+  minLength: 3,
+  maxLength: 50,
+  pattern: "^[a-zA-Z0-9-]+$",
+  required: true,
+}
+```
+
+### Number Field
+
+```typescript
+{
+  id: "port",
+  type: "number",
+  label: "Server Port",
+  min: 1024,
+  max: 65535,
+  step: 1,
+  default: 25565,
+}
+```
+
+### Boolean Field
+
+```typescript
+{
+  id: "autoRestart",
+  type: "boolean",
+  label: "Auto-Restart",
+  description: "Automatically restart on crash",
+  default: true,
+}
+```
+
+### Select Field
+
+```typescript
+{
+  id: "difficulty",
+  type: "select",
+  label: "Difficulty",
+  options: [
+    { label: "Peaceful", value: "peaceful" },
+    { label: "Easy", value: "easy" },
+    { label: "Normal", value: "normal" },
+    { label: "Hard", value: "hard" },
+  ],
+  default: "normal",
+}
+```
+
+### Textarea Field
+
+```typescript
+{
+  id: "motd",
+  type: "textarea",
+  label: "MOTD",
+  rows: 4,
+  maxLength: 500,
+  placeholder: "Server message of the day...",
+}
+```
+
+### Password Field
+
+```typescript
+{
+  id: "apiKey",
+  type: "password",
+  label: "API Key",
+  minLength: 10,
+  required: true,
+}
+```
+
+## React Components
+
+For complex UIs, create React components:
+
+### Server Tab Component
+
+```typescript tsx
+import { ServerTabProps } from "@stellarstack/plugin-sdk";
+
+export function ModpacksTab({ serverId, server, pluginConfig }: ServerTabProps) {
+  return (
+    <div>
+      <h2>Modpacks for {server.name}</h2>
+      <p>Server ID: {serverId}</p>
+      {/* Your custom UI */}
+    </div>
+  );
+}
+```
+
+### Server Widget Component
+
+```typescript tsx
+import { ServerWidgetProps } from "@stellarstack/plugin-sdk";
+
+export function StatsWidget({ serverId, server }: ServerWidgetProps) {
+  return (
+    <div className="widget">
+      <h3>Server Stats</h3>
+      <div>CPU: {server.cpu}%</div>
+      <div>Memory: {server.memory}MB</div>
+    </div>
+  );
+}
+```
+
+### Admin Page Component
+
+```typescript tsx
+import { AdminPageProps } from "@stellarstack/plugin-sdk";
+
+export function AnalyticsPage({ pluginConfig }: AdminPageProps) {
+  return (
+    <div>
+      <h1>Analytics Dashboard</h1>
+      {/* Charts, tables, etc. */}
+    </div>
+  );
+}
+```
+
+### Settings Panel Component
+
+```typescript tsx
+import { SettingsPanelProps } from "@stellarstack/plugin-sdk";
+
+export function SettingsPanel({ config, onConfigChange }: SettingsPanelProps) {
+  const handleChange = (key: string, value: unknown) => {
+    onConfigChange({ ...config, [key]: value });
+  };
+
+  return (
+    <div>
+      <label>
+        API Key:
+        <input
+          type="password"
+          value={config.apiKey as string}
+          onChange={(e) => handleChange("apiKey", e.target.value)}
+        />
+      </label>
+    </div>
+  );
+}
+```
+
+## Widget Sizes
+
+Server widgets support three sizes:
+
+- `small` - 1x1 grid (single stat, compact info)
+- `medium` - 2x1 grid (default, multiple stats)
+- `large` - 2x2 grid (charts, tables)
+
+```typescript
+serverWidgets: [
+  { id: "cpu", label: "CPU", component: "CPUWidget", size: "small" },
+  { id: "players", label: "Players", component: "Players", size: "medium" },
+  { id: "chart", label: "Chart", component: "Chart", size: "large" },
+]
+```
+
+## Icons
+
+Use Lucide icon names for tabs and admin pages:
+
+- `flame` - Fire icon (modpacks, hot content)
+- `leaf` - Leaf icon (Modrinth)
+- `gamepad` - Gamepad icon (Steam Workshop)
+- `megaphone` - Megaphone icon (announcements)
+- `chart` - Chart icon (analytics)
+- `settings` - Settings icon
+- `users` - Users icon
+- `server` - Server icon
+
+See [Lucide Icons](https://lucide.dev/) for all available icons.
+
+## Action Handlers
+
+UI schemas reference action IDs. Define these actions in your manifest:
+
+```typescript
+actions: [
+  {
+    id: "search-modpacks",
+    label: "Search Modpacks",
+    description: "Search for modpacks",
+    operations: [],
+  },
+  {
+    id: "install-modpack",
+    label: "Install Modpack",
+    dangerous: true,
+    params: [
+      { id: "modId", label: "Mod ID", type: "number", required: true },
+      { id: "fileId", label: "File ID", type: "number", required: true },
+    ],
+    operations: [
+      {
+        type: "download-to-server",
+        url: "https://api.curseforge.com/v1/mods/{{modId}}/files/{{fileId}}/download",
+        dest_path: "modpack.zip",
+        decompress: true,
+        directory: ".",
+      },
+      { type: "restart-server" },
+    ],
+  },
+]
+```
+
+## Example: Complete CurseForge Plugin UI
+
+```typescript
+manifest = {
+  id: "curseforge-installer",
+  name: "CurseForge Modpack Installer",
+  version: "1.0.0",
+  description: "Browse and install CurseForge modpacks",
+  author: "StellarStack",
+  category: "modding" as const,
+  gameTypes: ["minecraft"],
+  permissions: ["files.*", "control.start", "control.stop"],
+  
+  ui: {
+    serverTabs: [
+      {
+        id: "modpacks",
+        label: "Modpacks",
+        icon: "flame",
+        uiSchema: {
+          type: "search-and-install",
+          searchAction: "search-modpacks",
+          detailAction: "get-modpack-details",
+          installAction: "install-modpack",
+          fields: {
+            searchInput: {
+              label: "Search Modpacks",
+              placeholder: "Search by name or author...",
+            },
+            resultCard: {
+              title: "name",
+              subtitle: "authors",
+              image: "logo",
+              description: "summary",
+              metadata: [
+                {
+                  label: "Downloads",
+                  field: "downloadCount",
+                  format: "number",
+                },
+                {
+                  label: "Updated",
+                  field: "dateModified",
+                  format: "date",
+                },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  },
+  
+  actions: [
+    {
+      id: "search-modpacks",
+      label: "Search Modpacks",
+      operations: [],
+    },
+    {
+      id: "install-modpack",
+      label: "Install Modpack",
+      dangerous: true,
+      params: [
+        { id: "modId", type: "number", required: true },
+        { id: "fileId", type: "number", required: true },
+      ],
+      operations: [
+        {
+          type: "download-to-server",
+          url: "https://api.curseforge.com/v1/mods/{{modId}}/files/{{fileId}}/download",
+          dest_path: "modpack.zip",
+          decompress: true,
+          directory: ".",
+          headers: {
+            "x-api-key": "{{config.apiKey}}",
+          },
+        },
+        { type: "restart-server" },
+      ],
+    },
+  ],
+  
+  configSchema: {
+    type: "object",
+    properties: {
+      apiKey: {
+        type: "string",
+        title: "CurseForge API Key",
+        sensitive: true,
+      },
+    },
+    required: ["apiKey"],
+  },
+};
+```
+
+## Best Practices
+
+### 1. Use Declarative Schemas When Possible
+
+Declarative schemas are more secure and maintainable:
+
+```typescript
+// Good - Declarative
+uiSchema: { type: "form", fields: [...] }
+
+// Only use React components for complex/custom UIs
+component: "CustomComplexComponent"
+```
+
+### 2. Provide Clear Labels and Descriptions
+
+```typescript
+fields: [
+  {
+    id: "interval",
+    label: "Announcement Interval",
+    description: "How often to send announcements (in minutes)",
+    type: "number",
+  },
+]
+```
+
+### 3. Validate User Input
+
+```typescript
+fields: [
+  {
+    id: "port",
+    type: "number",
+    min: 1024,
+    max: 65535,
+    required: true,
+  },
+]
+```
+
+### 4. Show Confirmation for Dangerous Actions
+
+```typescript
+actions: [
+  {
+    id: "delete-all",
+    label: "Delete All Files",
+    dangerous: true,
+    confirmation: "This will delete ALL server files. Are you sure?",
+  },
+]
+```
+
+### 5. Use Appropriate Widget Sizes
+
+```typescript
+// Small widgets for single stats
+{ id: "uptime", size: "small" }
+
+// Large widgets for charts/tables
+{ id: "analytics", size: "large" }
+```
+
+## Next Steps
+
+- [Plugin API Reference](/development/plugin-api) - Complete API documentation
+- [Plugin Hooks](/development/plugin-hooks) - Available events and hooks

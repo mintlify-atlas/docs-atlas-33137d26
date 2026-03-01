@@ -1,0 +1,205 @@
+---
+title: 'Authentication'
+description: 'Authenticate with the StellarStack API'
+---
+
+## Overview
+
+The StellarStack API uses Better Auth for session-based authentication. Authentication is handled through HTTP-only cookies for security.
+
+## Authentication Methods
+
+### Email and Password
+
+Sign in with email and password credentials:
+
+```bash
+curl -X POST http://localhost:3001/api/auth/sign-in/email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "your_password"
+  }'
+```
+
+### Social OAuth Providers
+
+StellarStack supports OAuth authentication with:
+
+- **Google** - Configure with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+- **GitHub** - Configure with `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`  
+- **Discord** - Configure with `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`
+
+OAuth providers are only enabled when the corresponding environment variables are configured.
+
+### Passkeys (WebAuthn)
+
+StellarStack supports passwordless authentication using passkeys. Configure the relying party:
+
+<ParamField path="PASSKEY_RP_ID" type="string" default="localhost">
+  Passkey relying party identifier (your domain)
+</ParamField>
+
+<ParamField path="FRONTEND_URL" type="string" default="http://localhost:3000">
+  Frontend origin for passkey authentication
+</ParamField>
+
+### Two-Factor Authentication
+
+Enhance account security with 2FA:
+
+- **TOTP** - Time-based one-time passwords (Google Authenticator, Authy)
+- **Email OTP** - One-time codes sent via email
+
+## Session Management
+
+After successful authentication, Better Auth creates a session and returns a session token in an HTTP-only cookie:
+
+```http
+Set-Cookie: better-auth.session_token=<token>; HttpOnly; Secure; SameSite=Lax
+```
+
+### Using Sessions
+
+Include the session cookie in subsequent requests:
+
+```bash
+curl http://localhost:3001/api/servers \
+  -H "Cookie: better-auth.session_token=<session_token>"
+```
+
+### Getting Current Session
+
+Check your current session status:
+
+```bash
+curl http://localhost:3001/api/auth/get-session \
+  -H "Cookie: better-auth.session_token=<session_token>"
+```
+
+Response:
+
+```json
+{
+  "user": {
+    "id": "user_123",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "role": "user"
+  },
+  "session": {
+    "token": "<session_token>",
+    "expiresAt": "2026-03-08T12:00:00.000Z"
+  }
+}
+```
+
+## WebSocket Authentication
+
+For WebSocket connections, you can obtain a short-lived token:
+
+```bash
+curl http://localhost:3001/api/ws/token \
+  -H "Cookie: better-auth.session_token=<session_token>"
+```
+
+Response:
+
+```json
+{
+  "token": "<ws_token>",
+  "userId": "user_123"
+}
+```
+
+Use this token to authenticate your WebSocket connection. See the [WebSockets](/api/websockets) documentation for details.
+
+## User Roles
+
+StellarStack implements role-based access control:
+
+<ResponseField name="admin" type="Role">
+  Full system access, can manage all resources and settings
+</ResponseField>
+
+<ResponseField name="user" type="Role">
+  Standard user access, can manage own servers and resources
+</ResponseField>
+
+<ResponseField name="member" type="Role">
+  Limited access to shared servers only
+</ResponseField>
+
+## First-Time Setup
+
+If no users exist in the system, create the initial admin account:
+
+```bash
+curl -X POST http://localhost:3001/api/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "password": "secure_password"
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "user": {
+    "id": "user_123",
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "role": "admin"
+  },
+  "message": "Admin account created successfully"
+}
+```
+
+This endpoint only works when no users exist in the database.
+
+## Password Recovery
+
+For systems with the `ADMIN_RECOVERY_KEY` environment variable configured, reset user passwords:
+
+```bash
+curl -X POST http://localhost:3001/api/admin/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "newPassword": "new_secure_password",
+    "recoveryKey": "your_recovery_key"
+  }'
+```
+
+<Warning>
+The recovery key should be kept secret and only used for emergency password resets.
+</Warning>
+
+## Password Hashing
+
+StellarStack uses bcrypt for password hashing, which is:
+
+- Industry-standard and battle-tested
+- Compatible with SFTP authentication
+- Secure with appropriate work factors
+
+Passwords must be at least 8 characters long.
+
+## Email Verification
+
+In production environments (`NODE_ENV=production`), email verification is required for new accounts. Users receive a verification email after signup.
+
+## Sign Out
+
+End the current session:
+
+```bash
+curl -X POST http://localhost:3001/api/auth/sign-out \
+  -H "Cookie: better-auth.session_token=<session_token>"
+```
+
+This invalidates the session token and clears the authentication cookie.

@@ -1,0 +1,403 @@
+---
+title: Configuration
+description: Environment variables and configuration options for StellarStack
+---
+
+StellarStack uses environment variables to configure both the API server and web panel. This guide covers all available configuration options.
+
+## Configuration Files
+
+StellarStack uses separate environment files for different components:
+
+- **`apps/api/.env`** - API server configuration
+- **`apps/web/.env`** - Web panel configuration
+- **`.env`** - Docker Compose configuration (when using Docker)
+
+<Note>
+  Environment variables in `.env.example` files serve as templates. Copy them to `.env` and customize for your installation.
+</Note>
+
+## Required Variables
+
+These variables are required for StellarStack to function:
+
+### Database Connection
+
+<ParamField path="DATABASE_URL" type="string" required>
+  PostgreSQL connection string in the format:
+  
+  ```bash
+  DATABASE_URL="postgresql://user:password@host:port/database"
+  ```
+
+  **Example:**
+  ```bash
+  DATABASE_URL="postgresql://stellar:stellarpass@localhost:5432/stellar"
+  ```
+
+  <Warning>
+    Use a strong password for production deployments. The example password is for development only.
+  </Warning>
+</ParamField>
+
+### Authentication Secret
+
+<ParamField path="BETTER_AUTH_SECRET" type="string" required>
+  Secret key used to sign session tokens. Must be at least 32 characters.
+
+  **Generate a secure secret:**
+  ```bash
+  openssl rand -base64 32
+  ```
+
+  **Example:**
+  ```bash
+  BETTER_AUTH_SECRET="your-generated-secret-here"
+  ```
+
+  <Warning>
+    Never commit this secret to version control. Keep it secure and unique per installation.
+  </Warning>
+</ParamField>
+
+## Production Required Variables
+
+These variables are required for production deployments:
+
+### Frontend URL
+
+<ParamField path="FRONTEND_URL" type="string" required>
+  The public URL where your web panel is hosted. Used for CORS, redirects, and OAuth callbacks.
+
+  **Example:**
+  ```bash
+  FRONTEND_URL="https://panel.example.com"
+  ```
+
+  <Note>
+    Do not include a trailing slash. Use `https://` for production deployments with SSL.
+  </Note>
+</ParamField>
+
+### API URL
+
+<ParamField path="API_URL" type="string" required>
+  The public URL where your API server is hosted.
+
+  **Example:**
+  ```bash
+  API_URL="https://api.example.com"
+  ```
+</ParamField>
+
+### Security Secrets
+
+<ParamField path="DOWNLOAD_TOKEN_SECRET" type="string" required>
+  Secret used to sign file download tokens. Minimum 32 characters.
+
+  **Generate:**
+  ```bash
+  openssl rand -base64 32
+  ```
+</ParamField>
+
+<ParamField path="ENCRYPTION_KEY" type="string" required>
+  32-byte hexadecimal key for AES-256-CBC encryption. Used to encrypt sensitive data at rest.
+
+  **Generate:**
+  ```bash
+  openssl rand -hex 32
+  ```
+
+  **Example:**
+  ```bash
+  ENCRYPTION_KEY="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2"
+  ```
+
+  <Warning>
+    This must be exactly 64 hexadecimal characters (32 bytes). Losing this key will make encrypted data unrecoverable.
+  </Warning>
+</ParamField>
+
+<ParamField path="JWT_SECRET" type="string" required>
+  Secret for signing JWT tokens. Minimum 32 characters.
+
+  **Generate:**
+  ```bash
+  openssl rand -base64 32
+  ```
+</ParamField>
+
+## Optional Variables
+
+### OAuth Configuration
+
+Enable login with Google, GitHub, or Discord by configuring OAuth providers:
+
+#### Google OAuth
+
+<ParamField path="GOOGLE_CLIENT_ID" type="string">
+  Google OAuth 2.0 client ID. Get from [Google Cloud Console](https://console.cloud.google.com/).
+</ParamField>
+
+<ParamField path="GOOGLE_CLIENT_SECRET" type="string">
+  Google OAuth 2.0 client secret.
+</ParamField>
+
+**Setup Steps:**
+<Steps>
+  <Step title="Create OAuth credentials">
+    1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+    2. Create a new project or select existing
+    3. Navigate to **APIs & Services** > **Credentials**
+    4. Click **Create Credentials** > **OAuth client ID**
+  </Step>
+
+  <Step title="Configure authorized URLs">
+    Add these authorized redirect URIs:
+    ```
+    https://your-panel-domain.com/api/auth/callback/google
+    http://localhost:3000/api/auth/callback/google (for development)
+    ```
+  </Step>
+
+  <Step title="Add credentials to .env">
+    ```bash
+    GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET="your-client-secret"
+    ```
+  </Step>
+</Steps>
+
+#### GitHub OAuth
+
+<ParamField path="GITHUB_CLIENT_ID" type="string">
+  GitHub OAuth App client ID. Get from [GitHub Developer Settings](https://github.com/settings/developers).
+</ParamField>
+
+<ParamField path="GITHUB_CLIENT_SECRET" type="string">
+  GitHub OAuth App client secret.
+</ParamField>
+
+**Setup Steps:**
+<Steps>
+  <Step title="Create OAuth App">
+    1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+    2. Click **New OAuth App**
+    3. Fill in application details
+  </Step>
+
+  <Step title="Set callback URL">
+    Authorization callback URL:
+    ```
+    https://your-panel-domain.com/api/auth/callback/github
+    ```
+  </Step>
+
+  <Step title="Add credentials">
+    ```bash
+    GITHUB_CLIENT_ID="your-github-client-id"
+    GITHUB_CLIENT_SECRET="your-github-client-secret"
+    ```
+  </Step>
+</Steps>
+
+#### Discord OAuth
+
+<ParamField path="DISCORD_CLIENT_ID" type="string">
+  Discord Application client ID. Get from [Discord Developer Portal](https://discord.com/developers/applications).
+</ParamField>
+
+<ParamField path="DISCORD_CLIENT_SECRET" type="string">
+  Discord Application client secret.
+</ParamField>
+
+**Setup Steps:**
+<Steps>
+  <Step title="Create application">
+    1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+    2. Click **New Application**
+    3. Name your application
+  </Step>
+
+  <Step title="Configure OAuth2">
+    1. Navigate to **OAuth2** settings
+    2. Add redirect URL:
+    ```
+    https://your-panel-domain.com/api/auth/callback/discord
+    ```
+  </Step>
+
+  <Step title="Add credentials">
+    ```bash
+    DISCORD_CLIENT_ID="your-discord-client-id"
+    DISCORD_CLIENT_SECRET="your-discord-client-secret"
+    ```
+  </Step>
+</Steps>
+
+### Cloudflare Turnstile (CAPTCHA)
+
+Protect your login page with Cloudflare Turnstile:
+
+<ParamField path="NEXT_PUBLIC_TURNSTILE_SITE_KEY" type="string">
+  Turnstile site key (public). Configured in `apps/web/.env`.
+  
+  Get from [Cloudflare Dashboard](https://dash.cloudflare.com/).
+</ParamField>
+
+<ParamField path="TURNSTILE_SECRET_KEY" type="string">
+  Turnstile secret key. Configured in both `apps/api/.env` and `apps/web/.env`.
+</ParamField>
+
+**Setup:**
+<Steps>
+  <Step title="Create Turnstile site">
+    1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
+    2. Navigate to **Turnstile**
+    3. Click **Add Site**
+    4. Configure domain and widget type
+  </Step>
+
+  <Step title="Add keys to environment">
+    **apps/web/.env:**
+    ```bash
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY="your-site-key"
+    TURNSTILE_SECRET_KEY="your-secret-key"
+    ```
+
+    **apps/api/.env:**
+    ```bash
+    TURNSTILE_SECRET_KEY="your-secret-key"
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  If Turnstile keys are not configured, the CAPTCHA will not be displayed on the login page.
+</Note>
+
+## Configuration Examples
+
+### Development Environment
+
+**apps/api/.env:**
+```bash
+DATABASE_URL="postgresql://stellar:stellarpass@localhost:5432/stellar"
+```
+
+**apps/web/.env:**
+```bash
+# No additional configuration required for basic development
+```
+
+### Production Environment
+
+**apps/api/.env:**
+```bash
+DATABASE_URL="postgresql://stellarstack:secure_password@db.example.com:5432/stellarstack"
+BETTER_AUTH_SECRET="your-32-character-secret-here"
+FRONTEND_URL="https://panel.example.com"
+API_URL="https://api.example.com"
+DOWNLOAD_TOKEN_SECRET="your-download-token-secret"
+ENCRYPTION_KEY="your-64-character-hex-encryption-key"
+JWT_SECRET="your-jwt-secret"
+
+# Optional: OAuth
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+
+# Optional: CAPTCHA
+TURNSTILE_SECRET_KEY="your-turnstile-secret"
+```
+
+**apps/web/.env:**
+```bash
+# Optional: CAPTCHA
+NEXT_PUBLIC_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+TURNSTILE_SECRET_KEY="your-turnstile-secret"
+```
+
+## Applying Configuration Changes
+
+After modifying environment variables:
+
+<Tabs>
+  <Tab title="Development">
+    Restart the development servers:
+
+    ```bash
+    # Stop with Ctrl+C, then:
+    pnpm dev
+    ```
+  </Tab>
+
+  <Tab title="Production (Docker)">
+    Restart the containers:
+
+    ```bash
+    cd /opt/stellarstack
+    docker-compose restart
+    ```
+
+    For database URL changes, recreate containers:
+    ```bash
+    docker-compose down
+    docker-compose up -d
+    ```
+  </Tab>
+
+  <Tab title="Production (PM2/systemd)">
+    Restart the services:
+
+    ```bash
+    # PM2
+    pm2 restart stellarstack-api
+    pm2 restart stellarstack-web
+
+    # systemd
+    sudo systemctl restart stellarstack-api
+    sudo systemctl restart stellarstack-web
+    ```
+  </Tab>
+</Tabs>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use strong, unique secrets">
+    - Generate cryptographically secure random values for all secrets
+    - Never reuse secrets across installations
+    - Use different secrets for development and production
+  </Accordion>
+
+  <Accordion title="Protect environment files">
+    - Never commit `.env` files to version control
+    - Restrict file permissions: `chmod 600 .env`
+    - Use secret management services in production (AWS Secrets Manager, HashiCorp Vault, etc.)
+  </Accordion>
+
+  <Accordion title="Enable HTTPS in production">
+    - Use SSL/TLS certificates for all production deployments
+    - Configure `FRONTEND_URL` and `API_URL` with `https://`
+    - Enable HSTS headers in your reverse proxy
+  </Accordion>
+
+  <Accordion title="Secure your database">
+    - Use strong database passwords
+    - Restrict database access to application servers only
+    - Enable SSL for database connections in production
+    - Regularly backup your database
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Your First Server" icon="server" href="/getting-started/first-server">
+    Set up your first game server
+  </Card>
+  <Card title="Advanced Configuration" icon="sliders" href="/deployment/environment-variables">
+    Explore advanced configuration options
+  </Card>
+</CardGroup>

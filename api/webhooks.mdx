@@ -1,0 +1,496 @@
+---
+title: Webhooks
+description: Manage webhooks for event notifications
+---
+
+## Get Available Webhook Events
+
+Retrieve all available webhook event types, categorized by event category.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/webhooks/events \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="events" type="string[]">
+  Array of all available event types
+</ResponseField>
+
+<ResponseField name="categorized" type="object">
+  Events grouped by category
+  
+  <Expandable title="properties">
+    <ResponseField name="server" type="string[]">
+      Server-related events (SERVER_STARTED, SERVER_STOPPED, etc.)
+    </ResponseField>
+    <ResponseField name="backup" type="string[]">
+      Backup-related events (BACKUP_STARTED, BACKUP_COMPLETED, etc.)
+    </ResponseField>
+    <ResponseField name="transfer" type="string[]">
+      Server transfer events
+    </ResponseField>
+    <ResponseField name="file" type="string[]">
+      File operation events
+    </ResponseField>
+    <ResponseField name="resource" type="string[]">
+      Resource usage events
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## List Webhooks
+
+Get all webhooks for the authenticated user.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+Returns an array of webhook objects.
+
+<ResponseField name="id" type="string">
+  Unique webhook identifier
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  Webhook delivery URL
+</ResponseField>
+
+<ResponseField name="events" type="string[]">
+  Event types this webhook listens to
+</ResponseField>
+
+<ResponseField name="serverId" type="string" required={false}>
+  Server ID if webhook is scoped to a specific server
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  Whether the webhook is enabled
+</ResponseField>
+
+<ResponseField name="provider" type="string">
+  Webhook provider (currently only "discord")
+</ResponseField>
+
+<ResponseField name="server" type="object" required={false}>
+  Server details if serverId is set
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Server ID
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Server name
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="_count" type="object">
+  <Expandable title="properties">
+    <ResponseField name="deliveries" type="number">
+      Total number of deliveries for this webhook
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+---
+
+## Get Webhook Details
+
+Retrieve details for a specific webhook, including recent deliveries.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/webhooks/{id} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Webhook ID
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  Webhook URL
+</ResponseField>
+
+<ResponseField name="events" type="string[]">
+  Subscribed event types
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  Whether webhook is enabled
+</ResponseField>
+
+<ResponseField name="deliveries" type="array">
+  Last 10 deliveries
+  
+  <Expandable title="delivery object">
+    <ResponseField name="id" type="string">
+      Delivery ID
+    </ResponseField>
+    <ResponseField name="event" type="string">
+      Event type delivered
+    </ResponseField>
+    <ResponseField name="statusCode" type="number" required={false}>
+      HTTP status code from webhook endpoint
+    </ResponseField>
+    <ResponseField name="attempts" type="number">
+      Number of delivery attempts
+    </ResponseField>
+    <ResponseField name="deliveredAt" type="string" required={false}>
+      ISO 8601 timestamp of successful delivery
+    </ResponseField>
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error Responses
+
+<ResponseField name="error" type="string">
+  Error message
+</ResponseField>
+
+**404 Not Found** - Webhook not found or not owned by user
+
+---
+
+## Create Webhook
+
+Create a new webhook for event notifications.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://discord.com/api/webhooks/...",
+    "events": ["SERVER_STARTED", "SERVER_STOPPED"],
+    "serverId": "server-id-optional"
+  }'
+```
+</CodeGroup>
+
+### Request Body
+
+<ParamField body="url" type="string" required>
+  Webhook delivery URL (must be a valid URL)
+</ParamField>
+
+<ParamField body="events" type="string[]" required>
+  Array of event types to subscribe to (minimum 1)
+</ParamField>
+
+<ParamField body="serverId" type="string">
+  Optional server ID to scope webhook to a specific server
+</ParamField>
+
+### Response
+
+Returns the created webhook object.
+
+**201 Created** - Webhook created successfully
+
+**400 Bad Request** - Validation failed or invalid events
+
+<ResponseField name="error" type="string">
+  Error message
+</ResponseField>
+
+<ResponseField name="details" type="array">
+  Validation error details (if validation failed)
+</ResponseField>
+
+<ResponseField name="invalidEvents" type="string[]">
+  List of invalid event names (if events are invalid)
+</ResponseField>
+
+**404 Not Found** - Server not found or not owned by user (if serverId provided)
+
+---
+
+## Update Webhook
+
+Update an existing webhook's configuration.
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/webhooks/{id} \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": false
+  }'
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="url" type="string">
+  New webhook URL
+</ParamField>
+
+<ParamField body="events" type="string[]">
+  Updated event types (minimum 1)
+</ParamField>
+
+<ParamField body="enabled" type="boolean">
+  Enable or disable the webhook
+</ParamField>
+
+### Response
+
+Returns the updated webhook object.
+
+**400 Bad Request** - Validation failed or invalid events
+
+**404 Not Found** - Webhook not found
+
+---
+
+## Delete Webhook
+
+Permanently delete a webhook.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE https://api.stellarstack.io/webhooks/{id} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true on successful deletion
+</ResponseField>
+
+**404 Not Found** - Webhook not found
+
+---
+
+## Get Webhook Deliveries
+
+Retrieve delivery history for a webhook with pagination.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/webhooks/{id}/deliveries?limit=50&offset=0" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="limit" type="number" default="50">
+  Number of deliveries to return (max 100)
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of deliveries to skip for pagination
+</ParamField>
+
+### Response
+
+<ResponseField name="deliveries" type="array">
+  Array of delivery objects
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Total number of deliveries
+</ResponseField>
+
+<ResponseField name="limit" type="number">
+  Limit used for this request
+</ResponseField>
+
+<ResponseField name="offset" type="number">
+  Offset used for this request
+</ResponseField>
+
+**404 Not Found** - Webhook not found
+
+---
+
+## Get Delivery Details
+
+Get detailed information about a specific webhook delivery.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/webhooks/{id}/deliveries/{deliveryId} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+<ParamField path="deliveryId" type="string" required>
+  Delivery ID
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Delivery ID
+</ResponseField>
+
+<ResponseField name="webhookId" type="string">
+  Webhook ID
+</ResponseField>
+
+<ResponseField name="event" type="string">
+  Event type
+</ResponseField>
+
+<ResponseField name="payload" type="object">
+  Event payload sent to webhook
+</ResponseField>
+
+<ResponseField name="statusCode" type="number" required={false}>
+  HTTP status code from webhook endpoint
+</ResponseField>
+
+<ResponseField name="response" type="string" required={false}>
+  Response body from webhook endpoint (truncated to 5000 characters)
+</ResponseField>
+
+<ResponseField name="attempts" type="number">
+  Number of delivery attempts
+</ResponseField>
+
+<ResponseField name="deliveredAt" type="string" required={false}>
+  ISO 8601 timestamp of successful delivery
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+**404 Not Found** - Webhook or delivery not found
+
+---
+
+## Retry Failed Delivery
+
+Retry a failed webhook delivery.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/webhooks/{id}/deliveries/{deliveryId}/retry \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+<ParamField path="deliveryId" type="string" required>
+  Delivery ID to retry
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Whether the retry was successful
+</ResponseField>
+
+<ResponseField name="deliveryId" type="string">
+  ID of the new delivery created for the retry
+</ResponseField>
+
+<ResponseField name="statusCode" type="number">
+  HTTP status code from webhook endpoint
+</ResponseField>
+
+<ResponseField name="error" type="string" required={false}>
+  Error message if retry failed
+</ResponseField>
+
+**404 Not Found** - Webhook or delivery not found
+
+**500 Internal Server Error** - Retry failed
+
+---
+
+## Test Webhook
+
+Send a test payload to a webhook URL to verify it's working.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/webhooks/{id}/test \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Webhook ID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Whether the test was successful
+</ResponseField>
+
+<ResponseField name="error" type="string" required={false}>
+  Error message if test failed
+</ResponseField>
+
+**404 Not Found** - Webhook not found
+
+**500 Internal Server Error** - Test failed

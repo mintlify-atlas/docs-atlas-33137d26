@@ -1,0 +1,367 @@
+---
+title: Auto-Shutdown
+description: Automatically stop inactive servers to save resources
+---
+
+Auto-shutdown automatically stops servers that have been inactive for a specified period of time, helping you save resources and reduce costs.
+
+## How It Works
+
+StellarStack monitors server activity and automatically stops servers that exceed the configured inactivity timeout. The system checks for inactive servers every **60 seconds**.
+
+### Activity Tracking
+
+A server's activity timer is reset when:
+
+- The server transitions to `RUNNING` status
+- A console command is sent to the server
+- A power action (start/restart) is performed
+
+<Info>
+The inactivity timer is based on the `lastActivityAt` field. If this field is not set, the system falls back to using the server's `updatedAt` timestamp.
+</Info>
+
+## Configuration Levels
+
+Auto-shutdown can be configured at two levels:
+
+### 1. Global Auto-Shutdown
+
+Applies to all servers that haven't explicitly disabled auto-shutdown.
+
+```bash
+curl -X PUT https://api.stellarstack.com/settings/autoShutdown \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "timeout": 60  // Minutes of inactivity
+  }'
+```
+
+### 2. Per-Server Auto-Shutdown
+
+Overrides global settings for specific servers.
+
+```bash
+curl -X PATCH https://api.stellarstack.com/servers/srv_123 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "autoShutdownEnabled": true,
+    "autoShutdownTimeout": 30  // Minutes
+  }'
+```
+
+## Configuration Priority
+
+Per-server settings take precedence over global settings:
+
+<Steps>
+  <Step title="autoShutdownEnabled = true">
+    Server will **always** auto-shutdown after the specified timeout (uses per-server timeout or global timeout as fallback).
+  </Step>
+  
+  <Step title="autoShutdownEnabled = false">
+    Server will **never** auto-shutdown, even if global auto-shutdown is enabled.
+  </Step>
+  
+  <Step title="autoShutdownEnabled = null (default)">
+    Server inherits the global auto-shutdown setting.
+  </Step>
+</Steps>
+
+### Configuration Examples
+
+```typescript
+// Example 1: Explicit enable with custom timeout
+{
+  autoShutdownEnabled: true,   // Always auto-shutdown
+  autoShutdownTimeout: 15      // After 15 minutes
+}
+```
+
+```typescript
+// Example 2: Explicit disable (exempt from global)
+{
+  autoShutdownEnabled: false,  // Never auto-shutdown
+  autoShutdownTimeout: null    // Timeout ignored
+}
+```
+
+```typescript
+// Example 3: Inherit global setting
+{
+  autoShutdownEnabled: null,   // Use global setting
+  autoShutdownTimeout: null    // Use global timeout
+}
+```
+
+```typescript
+// Example 4: Use global enable, custom timeout
+{
+  autoShutdownEnabled: true,   // Explicitly enabled
+  autoShutdownTimeout: 120     // But with 2-hour timeout
+}
+```
+
+## Enable Global Auto-Shutdown
+
+To enable auto-shutdown for all servers by default:
+
+```bash
+curl -X PUT https://api.stellarstack.com/settings/autoShutdown \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "timeout": 60
+  }'
+```
+
+<Card title="Default Timeout" icon="clock">
+The recommended timeout is **60 minutes** for development servers and **30 minutes** for test environments.
+</Card>
+
+## Per-Server Configuration
+
+### Enable for Specific Server
+
+```bash
+curl -X PATCH https://api.stellarstack.com/servers/srv_123 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "autoShutdownEnabled": true,
+    "autoShutdownTimeout": 30
+  }'
+```
+
+### Disable for Specific Server
+
+Exempt a critical server from auto-shutdown:
+
+```bash
+curl -X PATCH https://api.stellarstack.com/servers/srv_production \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "autoShutdownEnabled": false
+  }'
+```
+
+<Warning>
+Production servers should typically have auto-shutdown **disabled** to prevent unexpected downtime.
+</Warning>
+
+## Auto-Shutdown Events
+
+When a server is automatically shut down:
+
+### 1. Plugin Hook (Before)
+
+The `server:beforeStop` hook is triggered:
+
+```typescript
+{
+  serverId: "srv_123",
+  data: {
+    action: "auto-shutdown",
+    reason: "inactivity",
+    inactiveMinutes: 65
+  }
+}
+```
+
+### 2. Server Stopped
+
+The server status changes to `STOPPING`, then `STOPPED`.
+
+### 3. Activity Logged
+
+An activity log entry is created:
+
+```typescript
+{
+  event: "SERVER_AUTO_SHUTDOWN",
+  serverId: "srv_123",
+  metadata: {
+    reason: "inactivity",
+    inactiveMinutes: 65,
+    timeoutMinutes: 60,
+    source: "per-server"  // or "global"
+  }
+}
+```
+
+### 4. Webhook Dispatched
+
+If you have webhooks configured for `server.auto_shutdown`, a notification is sent:
+
+```json
+{
+  "event": "server.auto_shutdown",
+  "timestamp": "2025-01-15T10:30:00.000Z",
+  "server": {
+    "id": "srv_123",
+    "name": "Dev Server",
+    "status": "STOPPING"
+  },
+  "data": {
+    "reason": "inactivity",
+    "inactiveMinutes": 65,
+    "timeoutMinutes": 60
+  }
+}
+```
+
+### 5. Plugin Hook (After)
+
+The `server:afterStop` hook is triggered:
+
+```typescript
+{
+  serverId: "srv_123",
+  data: {
+    action: "auto-shutdown",
+    reason: "inactivity",
+    status: "STOPPING"
+  }
+}
+```
+
+## Monitoring Auto-Shutdown
+
+### View Activity Logs
+
+Check which servers have been auto-shutdown:
+
+```bash
+curl -X GET "https://api.stellarstack.com/activity?event=SERVER_AUTO_SHUTDOWN" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+### Set Up Notifications
+
+Receive Discord/Slack notifications when servers auto-shutdown:
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK",
+    "events": ["server.auto_shutdown"]
+  }'
+```
+
+## Use Cases
+
+### Development Servers
+
+Automatically stop development servers after hours:
+
+```json
+{
+  "autoShutdownEnabled": true,
+  "autoShutdownTimeout": 30  // 30 minutes
+}
+```
+
+### Test Environments
+
+Stop test servers after CI/CD pipelines complete:
+
+```json
+{
+  "autoShutdownEnabled": true,
+  "autoShutdownTimeout": 15  // 15 minutes
+}
+```
+
+### Staging Servers
+
+Longer timeout for staging that may have intermittent usage:
+
+```json
+{
+  "autoShutdownEnabled": true,
+  "autoShutdownTimeout": 120  // 2 hours
+}
+```
+
+### Production Servers
+
+Disable auto-shutdown for always-on production servers:
+
+```json
+{
+  "autoShutdownEnabled": false
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Set Appropriate Timeouts" icon="timer">
+    Development: 30 minutes, Staging: 60-120 minutes, Production: Disabled
+  </Card>
+  
+  <Card title="Monitor Activity Logs" icon="chart-line">
+    Review auto-shutdown logs to optimize timeout values and identify usage patterns.
+  </Card>
+  
+  <Card title="Use Webhooks" icon="bell">
+    Set up notifications to track when servers are automatically stopped.
+  </Card>
+  
+  <Card title="Exempt Critical Servers" icon="shield">
+    Explicitly disable auto-shutdown for production and critical infrastructure.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server not auto-shutting down">
+    Check that:
+    - Auto-shutdown is enabled (globally or per-server)
+    - The server has been inactive for longer than the timeout
+    - The server is in `RUNNING` status
+    - The server is not suspended
+    - The node is online and reachable
+  </Accordion>
+  
+  <Accordion title="Server shuts down too quickly">
+    Increase the timeout value. Remember that activity is tracked based on console commands and power actions, not player connections.
+  </Accordion>
+  
+  <Accordion title="Cannot disable auto-shutdown for a server">
+    Set `autoShutdownEnabled` to `false` explicitly. Setting it to `null` will inherit the global setting.
+  </Accordion>
+  
+  <Accordion title="Node offline during auto-shutdown">
+    If the node is offline when auto-shutdown attempts to stop a server, the operation is skipped and logged. The server will remain in `RUNNING` status until the node comes back online.
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+### Check Interval
+
+The auto-shutdown checker runs every **60 seconds**.
+
+### Source Code Reference
+
+Auto-shutdown logic: `apps/api/src/lib/auto-shutdown.ts:76`
+
+### Activity Updates
+
+The `lastActivityAt` timestamp is updated in:
+- `apps/api/src/routes/servers.ts` (power actions)
+- `apps/api/src/routes/console.ts` (console commands)
+- Server process manager (status transitions)
+
+<Info>
+If your application needs to prevent auto-shutdown, send periodic keepalive commands or implement a custom activity tracking mechanism via the API.
+</Info>

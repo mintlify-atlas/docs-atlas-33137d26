@@ -1,0 +1,394 @@
+---
+title: Domains
+description: Manage subdomains and custom domains for servers
+---
+
+## Get Server Subdomain
+
+Retrieve the subdomain for a server.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/domains/{serverId}/subdomain \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+### Response
+
+If no subdomain is claimed:
+
+<ResponseField name="claimed" type="boolean">
+  Always false when no subdomain exists
+</ResponseField>
+
+If subdomain is claimed:
+
+<ResponseField name="claimed" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="subdomain" type="string">
+  Subdomain name (e.g., "my-server")
+</ResponseField>
+
+<ResponseField name="fullDomain" type="string">
+  Full domain including base (e.g., "my-server.stellarstack.io")
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+---
+
+## Claim Subdomain
+
+Claim a subdomain for a server. This creates a DNS record if Cloudflare integration is enabled.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/domains/{serverId}/subdomain \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subdomain": "my-awesome-server"
+  }'
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="subdomain" type="string" required>
+  Subdomain to claim (3-32 characters, lowercase alphanumeric with hyphens, cannot start or end with hyphen)
+</ParamField>
+
+### Response
+
+**201 Created**
+
+<ResponseField name="success" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="subdomain" type="string">
+  Claimed subdomain name
+</ResponseField>
+
+<ResponseField name="fullDomain" type="string">
+  Full domain (subdomain.base-domain)
+</ResponseField>
+
+<ResponseField name="dnsConfigured" type="boolean">
+  Whether DNS record was created automatically
+</ResponseField>
+
+<ResponseField name="note" type="string" required={false}>
+  Note about manual DNS configuration (if Cloudflare not enabled)
+</ResponseField>
+
+### Error Responses
+
+**400 Bad Request**
+
+<ResponseField name="error" type="string">
+  Error message (e.g., "Invalid subdomain", "This subdomain is reserved", "Server already has a subdomain", "Subdomain is already taken")
+</ResponseField>
+
+**404 Not Found** - Server not found
+
+**500 Internal Server Error** - Failed to create DNS record
+
+<ResponseField name="error" type="string">
+  Error message
+</ResponseField>
+
+<ResponseField name="details" type="string">
+  Detailed error from DNS provider
+</ResponseField>
+
+### Reserved Subdomains
+
+The following subdomains are reserved and cannot be claimed:
+- www
+- api
+- admin
+- panel
+- dashboard
+- mail
+- ftp
+- sftp
+- ssh
+
+---
+
+## Release Subdomain
+
+Release a claimed subdomain and remove the DNS record.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE https://api.stellarstack.io/domains/{serverId}/subdomain \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true on successful deletion
+</ResponseField>
+
+**404 Not Found** - Server does not have a subdomain
+
+---
+
+## List Custom Domains
+
+Get all custom domains for a server.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/domains/{serverId}/domains \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+### Response
+
+Returns an array of custom domain objects.
+
+<ResponseField name="id" type="string">
+  Domain ID
+</ResponseField>
+
+<ResponseField name="domain" type="string">
+  Domain name (e.g., "example.com")
+</ResponseField>
+
+<ResponseField name="verified" type="boolean">
+  Whether domain ownership has been verified
+</ResponseField>
+
+<ResponseField name="verifyCode" type="string">
+  Verification code to add as TXT record
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp
+</ResponseField>
+
+---
+
+## Add Custom Domain
+
+Add a custom domain to a server. Returns verification instructions.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/domains/{serverId}/domains \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "example.com"
+  }'
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="domain" type="string" required>
+  Domain name (4-253 characters, valid domain format)
+</ParamField>
+
+### Response
+
+**201 Created**
+
+<ResponseField name="success" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="id" type="string">
+  Domain ID
+</ResponseField>
+
+<ResponseField name="domain" type="string">
+  Domain name
+</ResponseField>
+
+<ResponseField name="verified" type="boolean">
+  Always false for newly added domains
+</ResponseField>
+
+<ResponseField name="verifyCode" type="string">
+  Verification code for DNS TXT record
+</ResponseField>
+
+<ResponseField name="instructions" type="object">
+  DNS configuration instructions
+  
+  <Expandable title="properties">
+    <ResponseField name="type" type="string">
+      Record type (always "TXT")
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Record name (always "_stellarstack")
+    </ResponseField>
+    <ResponseField name="value" type="string">
+      Verification code to use as record value
+    </ResponseField>
+    <ResponseField name="ttl" type="number">
+      Recommended TTL in seconds
+    </ResponseField>
+    <ResponseField name="note" type="string">
+      Human-readable instructions
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error Responses
+
+**400 Bad Request**
+
+<ResponseField name="error" type="string">
+  Error message (e.g., "Invalid domain format", "Domain is already registered")
+</ResponseField>
+
+---
+
+## Verify Domain Ownership
+
+Verify ownership of a custom domain by checking the DNS TXT record.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/domains/{serverId}/domains/{domainId}/verify \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+<ParamField path="domainId" type="string" required>
+  Domain ID
+</ParamField>
+
+### Response
+
+If already verified:
+
+<ResponseField name="verified" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  "Domain is already verified"
+</ResponseField>
+
+If verification successful:
+
+<ResponseField name="verified" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  "Domain verified successfully"
+</ResponseField>
+
+### Error Responses
+
+**400 Bad Request** - Verification failed
+
+<ResponseField name="verified" type="boolean">
+  Always false
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Error message
+</ResponseField>
+
+<ResponseField name="found" type="string[]" required={false}>
+  TXT records found (if verification code not found)
+</ResponseField>
+
+<ResponseField name="expected" type="string" required={false}>
+  Expected verification code
+</ResponseField>
+
+**404 Not Found** - Domain not found
+
+**500 Internal Server Error** - DNS lookup failed
+
+<ResponseField name="verified" type="boolean">
+  Always false
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  DNS error message
+</ResponseField>
+
+---
+
+## Remove Custom Domain
+
+Remove a custom domain from a server.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE https://api.stellarstack.io/domains/{serverId}/domains/{domainId} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+<ParamField path="domainId" type="string" required>
+  Domain ID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true on successful deletion
+</ResponseField>
+
+**404 Not Found** - Domain not found

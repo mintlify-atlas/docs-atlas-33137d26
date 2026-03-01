@@ -1,0 +1,416 @@
+---
+title: Docker Configuration
+description: Deep dive into container configuration and resource management
+---
+
+StellarStack uses Docker to isolate game servers in lightweight containers. Each server runs in its own container with configurable resource limits, networking, and security policies.
+
+## Container Architecture
+
+### Isolation Model
+
+Each game server gets:
+- **Dedicated filesystem** - Mounted from host volumes
+- **Resource limits** - CPU, memory, disk I/O constraints
+- **Network namespace** - Port bindings and firewall rules
+- **Process isolation** - PID limits and capability drops
+
+### Image System
+
+StellarStack uses Docker images (called **blueprints**) that include:
+- Base operating system (Alpine, Ubuntu, etc.)
+- Runtime dependencies (Java, Python, Node.js, etc.)
+- Pre-installed tools (curl, wget, unzip, etc.)
+
+Common images:
+```
+ghcr.io/stellarstack/java:17       # OpenJDK 17 (Minecraft)
+ghcr.io/stellarstack/java:8        # OpenJDK 8 (legacy servers)
+ghcr.io/stellarstack/nodejs:20     # Node.js 20 (Discord bots)
+ghcr.io/stellarstack/python:3.11   # Python 3.11 (mods/scripts)
+ghcr.io/stellarstack/steamcmd      # SteamCMD (Source games)
+```
+
+## Resource Limits
+
+### Memory Configuration
+
+Memory limits follow Pterodactyl's proven patterns:
+
+```rust
+// From source: apps/daemon/src/environment/docker/container.rs
+memory: Some(config.limits.bounded_memory_limit()),
+memory_swap: Some(config.limits.converted_swap()),
+memory_reservation: Some(config.limits.memory as i64),
+```
+
+**Memory overhead** accounts for Java heap metadata:
+- Server limit: 2GB
+- Actual limit: 2GB + overhead (e.g., 256MB for Java)
+- Swap: Disabled (prevents OOM thrashing)
+
+### CPU Limits
+
+CPU allocation uses CFS (Completely Fair Scheduler):
+
+```toml
+[docker.installer_limits]
+memory = 1024  # MB
+cpu = 100      # 100% = 1 core
+```
+
+CPU is expressed as a percentage:
+- `100` = 1 full core
+- `200` = 2 full cores
+- `50` = 0.5 cores (50% of one core)
+
+Translated to Docker:
+```rust
+cpu_quota: 100000,   // 100% = 100,000 microseconds
+cpu_period: 100000,  // per 100ms period
+```
+
+### Disk I/O
+
+Block I/O weight (relative priority):
+
+```rust
+blkio_weight: Some(config.limits.io_weight),  // 10-1000
+```
+
+Higher weight = more I/O bandwidth during contention.
+
+### PID Limits
+
+Prevents fork bombs:
+
+```toml
+container_pid_limit = 512
+```
+
+Default: 512 processes per container.
+
+## Networking
+
+### Port Bindings
+
+Ports are mapped from container to host:
+
+```rust
+// Container port 25565 -> Host 0.0.0.0:25565
+let binding = vec![PortBinding {
+    host_ip: Some("0.0.0.0".to_string()),
+    host_port: Some("25565".to_string()),
+}];
+
+port_bindings.insert("25565/tcp", Some(binding.clone()));
+port_bindings.insert("25565/udp", Some(binding));
+```
+
+Both TCP and UDP are bound automatically.
+
+### Network Modes
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `bridge` | Default Docker bridge network | Most game servers |
+| `host` | Direct host networking (no NAT) | Low-latency servers |
+| `none` | No networking | Offline servers |
+
+<Warning>
+  Host mode bypasses port isolation. Only use for trusted servers.
+</Warning>
+
+### DNS Configuration
+
+Custom DNS servers for containers:
+
+```toml
+[docker]
+dns = ["1.1.1.1", "1.0.0.1"]
+```
+
+Required for:
+- Plugin downloads
+- Mod updates
+- Authentication servers
+
+## Filesystem Mounts
+
+### Volume Bindings
+
+Each server gets a dedicated volume:
+
+```rust
+mounts.push(Mount {
+    target: Some("/home/container".to_string()),
+    source: Some("/var/lib/stellar/volumes/abc-123".to_string()),
+    typ: Some(MountTypeEnum::BIND),
+    read_only: Some(false),
+    ..Default::default()
+});
+```
+
+### Tmpfs for /tmp
+
+Ephemeral storage for temporary files:
+
+```rust
+let mut tmpfs = HashMap::new();
+tmpfs.insert(
+    "/tmp".to_string(),
+    format!("rw,exec,nosuid,size={}M", config.tmpfs_size),
+);
+```
+
+Default: 100MB, cleared on container restart.
+
+### Read-Only Root
+
+For enhanced security, the root filesystem can be read-only:
+
+```rust
+readonly_rootfs: Some(false),  // Set to true for immutable base
+```
+
+Servers write to the mounted volume, not the image.
+
+## Security Hardening
+
+### Capability Drops
+
+Containers drop 30+ dangerous Linux capabilities:
+
+```rust
+cap_drop: Some(vec![
+    "SETPCAP", "MKNOD", "AUDIT_WRITE", "NET_RAW",
+    "DAC_OVERRIDE", "FOWNER", "FSETID", "KILL",
+    "SYS_ADMIN", "SYS_BOOT", "SYS_MODULE", "SYS_CHROOT",
+    // ... and 20+ more
+]),
+```
+
+This prevents:
+- Kernel module loading
+- System reboot
+- Raw socket creation
+- Privilege escalation
+
+### No New Privileges
+
+Prevents SUID/SGID escalation:
+
+```rust
+security_opt: Some(vec!["no-new-privileges".to_string()]),
+```
+
+### Non-Root User
+
+Containers run as the `stellar` user (UID 1000):
+
+```toml
+[system.user]
+uid = 1000
+gid = 1000
+```
+
+Translated to Docker:
+```rust
+user: Some("1000:1000".to_string()),
+```
+
+## Logging
+
+### Log Driver
+
+Uses `json-file` with rotation:
+
+```rust
+log_config: Some(HostConfigLogConfig {
+    typ: Some("json-file".to_string()),
+    config: Some({
+        let mut cfg = HashMap::new();
+        cfg.insert("max-size".to_string(), "5m".to_string());
+        cfg.insert("max-file".to_string(), "1".to_string());
+        cfg.insert("mode".to_string(), "non-blocking".to_string());
+        cfg.insert("max-buffer-size".to_string(), "4m".to_string());
+        cfg
+    }),
+}),
+```
+
+Benefits:
+- **Max 5MB** per log file (prevents disk fill)
+- **Non-blocking** mode (prevents I/O stalls)
+- **4MB buffer** for burst logging
+
+### Console Streaming
+
+Logs are streamed via WebSocket to the panel:
+
+```rust
+pub(crate) fn process_output(&self, data: &[u8]) {
+    // Call log callback if set
+    if let Some(callback) = self.log_callback.read().as_ref() {
+        callback(data);
+    }
+
+    // Publish to event bus
+    self.event_bus.publish(Event::ConsoleOutput(data.to_vec()));
+}
+```
+
+## OOM Killer
+
+Out-of-Memory behavior:
+
+```rust
+oom_kill_disable: Some(config.oom_disabled),
+```
+
+When `false` (default):
+- Kernel kills the container if it exceeds memory
+- Server stops gracefully
+- Panel shows OOM exit reason
+
+When `true`:
+- Container can swap (degrades performance)
+- May affect host stability
+
+<Warning>
+  Only disable OOM killer if you have swap configured and understand the risks.
+</Warning>
+
+## Labels
+
+Containers are tagged for identification:
+
+```rust
+let mut labels = config.labels.clone();
+labels.insert("Service".to_string(), "StellarStack".to_string());
+labels.insert("ContainerType".to_string(), "server_process".to_string());
+```
+
+Useful for:
+- Monitoring tools (Prometheus, Grafana)
+- Backup scripts
+- Bulk operations
+
+## Restart Policies
+
+StellarStack manages restarts, not Docker:
+
+```rust
+restart_policy: Some(RestartPolicy {
+    name: Some(RestartPolicyNameEnum::NO),
+    ..Default::default()
+}),
+```
+
+This ensures:
+- Panel tracks all state changes
+- Crash detection works correctly
+- Users control restart behavior
+
+## Advanced Tuning
+
+### Memory Swappiness
+
+Control swap usage (0-100):
+
+```rust
+memory_swappiness: Some(0),  // Prefer OOM over swap
+```
+
+### CPU Pinning
+
+Bind to specific cores:
+
+```toml
+[server.limits]
+cpuset_cpus = "0,1"  # Use cores 0 and 1 only
+```
+
+### I/O Throttling
+
+Limit read/write bytes per second:
+
+```rust
+blkio_weight_device: Some(vec![
+    WeightDevice {
+        path: Some("/dev/sda".to_string()),
+        weight: Some(500),  // 50% priority
+    }
+]),
+```
+
+## Monitoring
+
+The daemon collects real-time stats:
+
+```rust
+// From apps/daemon/src/environment/docker/stats.rs
+let stats = self.docker()
+    .stats(&self.container_name, Some(options))
+    .next()
+    .await?;
+
+// CPU usage
+let cpu_percent = calculate_cpu_percent(&stats);
+
+// Memory usage
+let memory_bytes = stats.memory_stats.usage.unwrap_or(0);
+
+// Network I/O
+let rx_bytes = stats.networks.values().sum(|n| n.rx_bytes);
+let tx_bytes = stats.networks.values().sum(|n| n.tx_bytes);
+```
+
+Viewed in the panel's **Statistics** tab.
+
+## Troubleshooting
+
+### Container won't start
+
+**Check image exists:**
+
+```bash
+docker images | grep stellarstack
+```
+
+**Inspect container config:**
+
+```bash
+docker inspect <container-name>
+```
+
+### Performance issues
+
+**Check resource usage:**
+
+```bash
+docker stats <container-name>
+```
+
+**Increase limits in panel:**
+
+Server Settings → Resources → Memory/CPU
+
+### Permission errors
+
+**Fix volume ownership:**
+
+```bash
+sudo chown -R 1000:1000 /var/lib/stellar/volumes/<server-id>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Daemon Setup" icon="server" href="/advanced/daemon-setup">
+    Configure the Rust daemon
+  </Card>
+  <Card title="Security Features" icon="shield" href="/advanced/security">
+    Learn about security hardening
+  </Card>
+</CardGroup>

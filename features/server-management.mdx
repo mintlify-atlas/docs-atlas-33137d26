@@ -1,0 +1,225 @@
+---
+title: Server Management
+description: Create, monitor, and manage game servers with full power controls and real-time stats
+---
+
+## Overview
+
+StellarStack provides comprehensive server management capabilities, allowing you to create, monitor, and control game servers with ease. Each server runs in an isolated Docker container on daemon nodes, providing security and resource isolation.
+
+<CardGroup cols={2}>
+  <Card title="Power Controls" icon="power-off">
+    Start, stop, restart, or forcefully kill servers with a single click
+  </Card>
+  <Card title="Real-time Monitoring" icon="chart-line">
+    Live CPU, memory, disk, and network statistics via WebSocket
+  </Card>
+  <Card title="Status Tracking" icon="circle-dot">
+    Track server states: Running, Starting, Stopped, Installing, Suspended
+  </Card>
+  <Card title="Resource Limits" icon="gauge">
+    Configure CPU, memory, disk, and swap limits per server
+  </Card>
+</CardGroup>
+
+## Creating a Server
+
+Administrators can create new servers from the admin panel. Each server requires:
+
+1. **Blueprint Selection**: Choose a pre-configured game template (Minecraft, Rust, etc.)
+2. **Node Assignment**: Select which daemon node will host the server
+3. **Resource Allocation**: Define CPU, memory, disk, and swap limits
+4. **Network Allocation**: Assign at least one IP:Port allocation
+5. **Variables Configuration**: Set game-specific environment variables
+
+### Resource Configuration
+
+- **CPU**: Defined as percentage (100 = 1 core, 400 = 4 cores)
+- **Memory**: RAM limit in MiB (1024 MiB = 1 GB)
+- **Disk**: Storage limit in MiB
+- **Swap**: Swap memory (-1 = unlimited, 0 = disabled, positive values = limited in MiB)
+- **OOM Killer**: Option to disable out-of-memory killer for the container
+
+<Note>
+  The installation process begins automatically if the blueprint includes an installation script. Servers without install scripts start in STOPPED state.
+</Note>
+
+## Server States
+
+Servers progress through various states during their lifecycle:
+
+| State | Description |
+|-------|-------------|
+| `INSTALLING` | Running installation script (first-time setup) |
+| `STARTING` | Container is booting up |
+| `RUNNING` | Server is fully operational |
+| `STOPPING` | Gracefully shutting down |
+| `STOPPED` | Server is offline |
+| `SUSPENDED` | Server access is disabled (billing or admin action) |
+| `MAINTENANCE` | Temporary maintenance mode |
+| `ERROR` | Server encountered a critical error |
+
+## Power Controls
+
+Manage server power states with four control actions:
+
+<Tabs>
+  <Tab title="Start">
+    Starts a stopped server. The server transitions to `STARTING` state, then `RUNNING` once startup patterns are detected.
+    
+    **Required Permission**: `control.start`
+  </Tab>
+  <Tab title="Stop">
+    Gracefully stops a running server using the configured stop command (e.g., `stop` for Minecraft, `SIGTERM` for others).
+    
+    **Required Permission**: `control.stop`
+  </Tab>
+  <Tab title="Restart">
+    Stops and immediately restarts the server. Useful for applying configuration changes.
+    
+    **Required Permission**: `control.restart`
+  </Tab>
+  <Tab title="Kill">
+    Forcefully terminates the server process (SIGKILL). Use only when normal stop fails.
+    
+    **Required Permission**: `control.kill`
+  </Tab>
+</Tabs>
+
+<Warning>
+  Suspended servers cannot be started. Contact an administrator to lift suspension.
+</Warning>
+
+## Real-time Statistics
+
+Servers stream live performance metrics via WebSocket connection:
+
+### CPU Usage
+- **Absolute Usage**: Current CPU percentage across all allocated cores
+- **Historical Data**: 60-second rolling history for graphing
+- **Limit Display**: Shows usage relative to allocated CPU limit
+
+### Memory Usage
+- **Bytes Used**: Current memory consumption in bytes
+- **Percentage**: Memory usage relative to allocated limit
+- **History Graph**: Visual representation of memory trends
+
+### Disk Usage
+- **Used Space**: Actual disk space consumed
+- **Limit**: Total allocated disk space
+- **Real-time Updates**: Polled every 5 seconds for accuracy
+
+### Network Traffic
+- **Download Rate**: Incoming network traffic (bytes/sec)
+- **Upload Rate**: Outgoing network traffic (bytes/sec)
+- **Historical Graphs**: Visual bandwidth usage over time
+
+### System Information
+- **Uptime**: How long the container has been running
+- **Node Location**: Geographic location of the host node
+- **Network Info**: IP addresses and open ports
+
+## Server Settings
+
+Configure server metadata and behavior:
+
+### Basic Settings
+- **Server Name**: Display name shown in the panel
+- **Description**: Optional description for organization
+
+**Required Permissions**: `settings.read`, `settings.rename`, `settings.description`
+
+### Advanced Options (Admin Only)
+- **Resource Modification**: Adjust CPU, memory, disk allocations
+- **Status Override**: Manually change server status
+- **Auto-Shutdown**: Configure automatic shutdown after inactivity
+- **Backup Limit**: Set maximum number of backups allowed
+
+### Auto-Shutdown Configuration
+
+Servers can automatically shut down after a period of inactivity to save resources:
+
+- **Global Default**: Inherits panel-wide auto-shutdown settings (null)
+- **Enabled**: Auto-shutdown after configured timeout (1-10080 minutes)
+- **Disabled**: Server never auto-shuts down
+
+Activity is tracked through console commands and file modifications.
+
+## Reinstallation
+
+Reinstall a server to reset it to a clean state:
+
+1. Navigate to **Server Settings**
+2. Click **Reinstall Server**
+3. Confirm the destructive action
+4. Server enters `INSTALLING` state and runs the installation script
+
+**Required Permission**: `settings.reinstall`
+
+<Warning>
+  Reinstallation is destructive and may delete server files depending on the blueprint's install script. Always create a backup first.
+</Warning>
+
+## Blueprint Changing
+
+Switch a server to a different game type:
+
+1. Select a new blueprint from available templates
+2. Optionally adjust startup variables and Docker image
+3. Choose whether to reinstall immediately
+4. Server updates to use new blueprint configuration
+
+This is useful for repurposing servers (e.g., switching from Vanilla Minecraft to Modded).
+
+## Server Splitting
+
+Split a server's resources to create child servers:
+
+- Divide CPU, memory, and disk allocations
+- Create multiple smaller servers from one large allocation
+- Parent-child relationship tracked in database
+- Cascading suspension: suspending parent suspends all children
+- Deleting child server returns resources to parent
+
+**Required Permissions**: `split.read`, `split.create`, `split.delete`
+
+<Info>
+  Server splitting is ideal for game hosting companies offering resource sharing or users who want to run multiple small game instances.
+</Info>
+
+## Monitoring & Activity
+
+Track all actions performed on your server:
+
+- **Activity Logs**: Complete audit trail of power actions, file changes, and configuration updates
+- **Event Timestamps**: When each action occurred
+- **User Attribution**: Who performed each action
+- **WebSocket Events**: Real-time notifications of server state changes
+- **Webhooks**: External integrations for server events (start, stop, created, deleted)
+
+**Required Permission**: `activity.read`
+
+## Permissions
+
+The following permission nodes control server management access:
+
+### Power Control
+- `control.start` - Start the server
+- `control.stop` - Stop the server gracefully
+- `control.restart` - Restart the server
+- `control.kill` - Force kill the server process
+
+### Settings Management
+- `settings.read` - View server settings
+- `settings.rename` - Change server name
+- `settings.description` - Edit server description
+- `settings.reinstall` - Reinstall the server
+
+### Resource Splitting
+- `split.read` - View split servers
+- `split.create` - Create child servers
+- `split.delete` - Delete child servers
+
+<Tip>
+  Grant `control.*` wildcard permission to allow all power control actions, or assign individual permissions for granular access control.
+</Tip>

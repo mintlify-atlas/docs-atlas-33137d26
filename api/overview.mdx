@@ -1,0 +1,144 @@
+---
+title: 'API Overview'
+description: 'Introduction to the StellarStack REST API'
+---
+
+## Introduction
+
+The StellarStack API is a RESTful API built with Hono that provides programmatic access to manage your game servers, nodes, blueprints, and more. The API supports JSON request and response formats.
+
+## Base URL
+
+The API is available at:
+
+```
+http://localhost:3001
+```
+
+In production environments, this will be your configured API URL set via the `API_URL` environment variable.
+
+## Versioning
+
+The current API uses path-based versioning with all endpoints prefixed with `/api`. Future versions may introduce version-specific paths like `/api/v2` if breaking changes are required.
+
+## Response Format
+
+All API responses are returned in JSON format with appropriate HTTP status codes.
+
+### Success Response
+
+Successful requests return a `200 OK` status code (or `201 Created` for resource creation) with the requested data:
+
+```json
+{
+  "id": "srv_abc123",
+  "name": "my-server",
+  "status": "running"
+}
+```
+
+### Error Response
+
+Error responses include an `error` field with a descriptive message:
+
+```json
+{
+  "error": "Resource not found"
+}
+```
+
+### Common Status Codes
+
+<ResponseField name="200" type="OK">
+  Request successful
+</ResponseField>
+
+<ResponseField name="201" type="Created">
+  Resource created successfully
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request parameters or body
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Authentication required or invalid credentials
+</ResponseField>
+
+<ResponseField name="403" type="Forbidden">
+  Insufficient permissions to access resource
+</ResponseField>
+
+<ResponseField name="404" type="Not Found">
+  Resource not found
+</ResponseField>
+
+<ResponseField name="429" type="Too Many Requests">
+  Rate limit exceeded
+</ResponseField>
+
+<ResponseField name="500" type="Internal Server Error">
+  Server error occurred
+</ResponseField>
+
+## Rate Limit Headers
+
+All API responses include rate limit information in the headers:
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1709308800
+```
+
+<ParamField header="X-RateLimit-Limit" type="string">
+  Maximum number of requests allowed in the current window
+</ParamField>
+
+<ParamField header="X-RateLimit-Remaining" type="string">
+  Number of requests remaining in the current window
+</ParamField>
+
+<ParamField header="X-RateLimit-Reset" type="string">
+  Unix timestamp when the rate limit window resets
+</ParamField>
+
+## CORS
+
+The API supports Cross-Origin Resource Sharing (CORS) for requests from the configured frontend URL. In desktop mode, requests from any `localhost` origin are allowed.
+
+Allowed origins are configured via the `FRONTEND_URL` environment variable.
+
+## Health Check
+
+You can check the API health status using the health endpoint:
+
+```bash
+curl http://localhost:3001/health
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-03-01T12:00:00.000Z"
+}
+```
+
+## Request Format
+
+All POST and PUT requests should include a `Content-Type: application/json` header and a JSON request body.
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:3001/api/servers \
+  -H "Content-Type: application/json" \
+  -H "Cookie: better-auth.session_token=<session_token>" \
+  -d '{
+    "name": "my-server",
+    "nodeId": "node_123",
+    "blueprintId": "bp_456"
+  }'
+```

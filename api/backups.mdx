@@ -1,0 +1,391 @@
+---
+title: 'Backups'
+description: 'Manage server backups - create, restore, download, and delete backups'
+---
+
+## List Backups
+
+<CodeGroup>
+```http GET /api/servers/:serverId/backups
+GET /api/servers/{serverId}/backups
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+List all backups for a server.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Authentication
+
+Requires server access (owner, admin, or member with permissions).
+
+### Response
+
+<ResponseField name="backups" type="array">
+  Array of backup objects
+  
+  <Expandable title="Backup Object">
+    <ResponseField name="id" type="string">Backup UUID</ResponseField>
+    <ResponseField name="name" type="string">Backup name</ResponseField>
+    <ResponseField name="size" type="number">Backup size in bytes</ResponseField>
+    <ResponseField name="checksum" type="string">SHA256 checksum</ResponseField>
+    <ResponseField name="checksumType" type="string">Checksum algorithm (sha256)</ResponseField>
+    <ResponseField name="status" type="string">IN_PROGRESS | COMPLETED | FAILED | RESTORING</ResponseField>
+    <ResponseField name="isLocked" type="boolean">Whether backup is locked from deletion</ResponseField>
+    <ResponseField name="storagePath" type="string">Storage path or S3 key</ResponseField>
+    <ResponseField name="serverId" type="string">Server UUID</ResponseField>
+    <ResponseField name="ignoredFiles" type="array">Files/patterns excluded from backup</ResponseField>
+    <ResponseField name="completedAt" type="string">ISO 8601 timestamp</ResponseField>
+    <ResponseField name="createdAt" type="string">ISO 8601 timestamp</ResponseField>
+    <ResponseField name="updatedAt" type="string">ISO 8601 timestamp</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "backup-uuid-1",
+    "name": "Backup 1/15/2024",
+    "size": 1073741824,
+    "checksum": "abc123def456...",
+    "checksumType": "sha256",
+    "status": "COMPLETED",
+    "isLocked": false,
+    "storagePath": "/backups/server-uuid/backup-uuid-1.tar.gz",
+    "serverId": "server-uuid",
+    "ignoredFiles": ["*.log", "cache/*"],
+    "completedAt": "2024-01-15T12:00:00Z",
+    "createdAt": "2024-01-15T11:55:00Z",
+    "updatedAt": "2024-01-15T12:00:00Z"
+  }
+]
+```
+</ResponseExample>
+
+---
+
+## Create Backup
+
+<CodeGroup>
+```http POST /api/servers/:serverId/backups
+POST /api/servers/{serverId}/backups
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Create a new backup of the server.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Authentication
+
+Requires server access and server must not be suspended.
+
+### Request Body
+
+<ParamField body="name" type="string">
+  Backup name (defaults to "Backup {date}")
+</ParamField>
+
+<ParamField body="uuid" type="string">
+  Custom backup UUID (auto-generated if not provided)
+</ParamField>
+
+<ParamField body="ignore" type="array">
+  File patterns to exclude from backup (e.g., ["*.log", "cache/*"])
+</ParamField>
+
+<ParamField body="locked" type="boolean" default="false">
+  Whether to lock the backup from deletion
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "name": "Pre-update backup",
+  "ignore": ["*.log", "logs/*", "cache/*"],
+  "locked": true
+}
+```
+</RequestExample>
+
+### Response
+
+Returns the created backup object.
+
+<ResponseExample>
+```json
+{
+  "id": "backup-uuid-2",
+  "name": "Pre-update backup",
+  "size": 524288000,
+  "checksum": "def789ghi012...",
+  "checksumType": "sha256",
+  "status": "COMPLETED",
+  "isLocked": true,
+  "serverId": "server-uuid",
+  "ignoredFiles": ["*.log", "logs/*", "cache/*"],
+  "completedAt": "2024-01-15T14:00:00Z",
+  "createdAt": "2024-01-15T13:58:00Z",
+  "updatedAt": "2024-01-15T14:00:00Z"
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Node is offline or server is suspended
+- `500` - Daemon communication error
+
+---
+
+## Restore Backup
+
+<CodeGroup>
+```http POST /api/servers/:serverId/backups/restore
+POST /api/servers/{serverId}/backups/restore?id={backupId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Restore a server from a backup. This will overwrite existing server files.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="id" type="string" required>
+  Backup UUID to restore
+</ParamField>
+
+### Authentication
+
+Requires server access and server must not be suspended.
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Backup restored successfully"
+}
+```
+
+### Errors
+
+- `400` - Backup ID required, node offline, cannot restore from failed backup, or backup not ready
+- `404` - Backup not found
+- `409` - Backup is currently in progress or restoring
+- `500` - Daemon communication error
+
+---
+
+## Generate Download Token
+
+<CodeGroup>
+```http POST /api/servers/:serverId/backups/download-token
+POST /api/servers/{serverId}/backups/download-token
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Generate a signed download token for a backup. Required before downloading.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Backup UUID to download
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "id": "backup-uuid-1"
+}
+```
+</RequestExample>
+
+### Response
+
+<ResponseField name="token" type="string">
+  Signed download token (expires in 5 minutes)
+</ResponseField>
+
+<ResponseField name="expiresAt" type="number">
+  Unix timestamp when token expires
+</ResponseField>
+
+<ResponseField name="downloadUrl" type="string">
+  Complete download URL with token
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "token": "base64url-encoded-signed-token",
+  "expiresAt": 1705329600,
+  "downloadUrl": "/api/servers/server-uuid/backups/download?token=base64url-encoded-signed-token"
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Backup ID required
+
+---
+
+## Download Backup
+
+<CodeGroup>
+```http GET /api/servers/:serverId/backups/download
+GET /api/servers/{serverId}/backups/download?token={token}
+```
+</CodeGroup>
+
+Download a backup file using a signed token. Token must be generated first.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="token" type="string" required>
+  Signed download token from download-token endpoint
+</ParamField>
+
+### Authentication
+
+No session authentication required - uses signed token instead.
+
+### Response
+
+Returns the backup file as `application/gzip` with filename `{backupId}.tar.gz`.
+
+### Errors
+
+- `400` - Invalid token type
+- `401` - Download token required or token expired/invalid
+- `403` - Token not valid for this server
+- `500` - Daemon communication error
+
+---
+
+## Delete Backup
+
+<CodeGroup>
+```http DELETE /api/servers/:serverId/backups/delete
+DELETE /api/servers/{serverId}/backups/delete?id={backupId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Permanently delete a backup. Cannot delete locked backups.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="id" type="string" required>
+  Backup UUID to delete
+</ParamField>
+
+### Authentication
+
+Requires server access and server must not be suspended.
+
+### Response
+
+```json
+{ "success": true }
+```
+
+### Errors
+
+- `400` - Backup ID required or node offline
+- `403` - Cannot delete locked backup
+- `404` - Backup not found
+- `500` - Daemon communication error
+
+---
+
+## Backup Workflow Example
+
+Here's a complete workflow for creating and managing backups:
+
+```bash
+# 1. Create a backup
+curl -X POST https://api.stellarstack.io/api/servers/server-uuid/backups \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Pre-update backup",
+    "ignore": ["*.log", "cache/*"],
+    "locked": false
+  }'
+
+# Response: { "id": "backup-123", "status": "COMPLETED", ... }
+
+# 2. List all backups
+curl https://api.stellarstack.io/api/servers/server-uuid/backups \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 3. Generate download token
+curl -X POST https://api.stellarstack.io/api/servers/server-uuid/backups/download-token \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "backup-123"}'
+
+# Response: { "token": "abc...", "downloadUrl": "..." }
+
+# 4. Download the backup
+curl -O "https://api.stellarstack.io/api/servers/server-uuid/backups/download?token=abc..."
+
+# 5. Restore from backup
+curl -X POST "https://api.stellarstack.io/api/servers/server-uuid/backups/restore?id=backup-123" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 6. Delete old backup
+curl -X DELETE "https://api.stellarstack.io/api/servers/server-uuid/backups/delete?id=backup-456" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+## Notes
+
+- Backups are stored as gzipped tar archives (.tar.gz)
+- Download tokens expire after 5 minutes for security
+- Locked backups cannot be deleted until unlocked
+- Backups in progress or restoring cannot be deleted
+- Failed backups can be deleted but not restored
+- Server status is automatically set to RESTORING during restoration

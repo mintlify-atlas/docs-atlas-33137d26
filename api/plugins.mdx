@@ -1,0 +1,646 @@
+---
+title: Plugins
+description: Manage and interact with StellarStack plugins
+---
+
+## List Plugins
+
+Get all available plugins. Non-admin users only see enabled plugins.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/plugins \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+Returns an array of plugin objects.
+
+<ResponseField name="pluginId" type="string">
+  Unique plugin identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Plugin display name
+</ResponseField>
+
+<ResponseField name="version" type="string">
+  Plugin version
+</ResponseField>
+
+<ResponseField name="description" type="string" required={false}>
+  Plugin description
+</ResponseField>
+
+<ResponseField name="author" type="string" required={false}>
+  Plugin author
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Plugin status: "installed", "enabled", "disabled", "error"
+</ResponseField>
+
+<ResponseField name="category" type="string">
+  Plugin category
+</ResponseField>
+
+<ResponseField name="isBuiltIn" type="boolean">
+  Whether this is an official built-in plugin
+</ResponseField>
+
+---
+
+## Get Plugin Details
+
+Retrieve detailed information about a specific plugin.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/plugins/{pluginId} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID (e.g., "curseforge-installer")
+</ParamField>
+
+### Response
+
+<ResponseField name="pluginId" type="string">
+  Plugin ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Plugin name
+</ResponseField>
+
+<ResponseField name="version" type="string">
+  Current version
+</ResponseField>
+
+<ResponseField name="description" type="string" required={false}>
+  Plugin description
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Plugin status
+</ResponseField>
+
+<ResponseField name="config" type="object">
+  Current plugin configuration
+</ResponseField>
+
+<ResponseField name="manifest" type="object">
+  Full plugin manifest with actions, permissions, etc.
+</ResponseField>
+
+**404 Not Found** - Plugin not found
+
+---
+
+## Get Server Tab Plugins
+
+Get plugins that provide custom tabs for a specific server.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/plugins/server/{serverId}/tabs \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server ID
+</ParamField>
+
+### Response
+
+Returns an array of plugins that provide tabs compatible with the server's game type.
+
+**404 Not Found** - Server not found
+
+---
+
+## Enable Plugin
+
+Enable a plugin. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/plugins/{pluginId}/enable \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Response
+
+Returns the updated plugin object with status "enabled".
+
+**400 Bad Request** - Failed to enable plugin
+
+**403 Forbidden** - Admin role required
+
+---
+
+## Disable Plugin
+
+Disable a plugin. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/plugins/{pluginId}/disable \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Response
+
+Returns the updated plugin object with status "disabled".
+
+**400 Bad Request** - Failed to disable plugin
+
+**403 Forbidden** - Admin role required
+
+---
+
+## Update Plugin Configuration
+
+Update a plugin's configuration settings. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/plugins/{pluginId}/config \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "your-api-key",
+    "autoRestart": true
+  }'
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Request Body
+
+Configuration object (schema varies by plugin).
+
+### Response
+
+Returns the updated plugin object.
+
+**400 Bad Request** - Failed to update configuration
+
+**403 Forbidden** - Admin role required
+
+---
+
+## Uninstall Plugin
+
+Uninstall a plugin. Only community plugins can be uninstalled. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE https://api.stellarstack.io/plugins/{pluginId} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true on successful uninstallation
+</ResponseField>
+
+**400 Bad Request** - Cannot uninstall built-in plugins
+
+**403 Forbidden** - Admin role required
+
+---
+
+## Execute Plugin Action
+
+Execute a plugin action on a server.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/plugins/{pluginId}/actions/{actionId} \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "serverId": "server-id",
+    "inputs": {
+      "version": "1.20.4"
+    },
+    "confirmed": true
+  }'
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+<ParamField path="actionId" type="string" required>
+  Action ID from plugin manifest
+</ParamField>
+
+### Request Body
+
+<ParamField body="serverId" type="string" required>
+  Server ID to execute action on
+</ParamField>
+
+<ParamField body="inputs" type="object">
+  Action input parameters (schema defined by plugin action)
+</ParamField>
+
+<ParamField body="confirmed" type="boolean">
+  Confirmation for dangerous actions (required if action is marked dangerous)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Whether action executed successfully
+</ResponseField>
+
+<ResponseField name="executedOperations" type="number">
+  Number of operations completed
+</ResponseField>
+
+<ResponseField name="error" type="string" required={false}>
+  Error message if action failed
+</ResponseField>
+
+### Error Responses
+
+**400 Bad Request**
+
+<ResponseField name="error" type="string">
+  Error message
+</ResponseField>
+
+<ResponseField name="requiresConfirmation" type="boolean">
+  True if action requires confirmation
+</ResponseField>
+
+<ResponseField name="action" type="object">
+  Action details
+</ResponseField>
+
+**403 Forbidden** - Access denied to server
+
+**404 Not Found** - Plugin or action not found
+
+---
+
+## Get Plugin Storage
+
+Get a value from plugin storage. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/plugins/{pluginId}/storage/{key}?serverId=server-id" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+<ParamField path="key" type="string" required>
+  Storage key
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="serverId" type="string">
+  Optional server ID for server-scoped storage
+</ParamField>
+
+### Response
+
+<ResponseField name="key" type="string">
+  Storage key
+</ResponseField>
+
+<ResponseField name="value" type="any">
+  Stored value
+</ResponseField>
+
+---
+
+## Set Plugin Storage
+
+Set a value in plugin storage. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X PUT https://api.stellarstack.io/plugins/{pluginId}/storage/{key} \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "value": {"config": "data"},
+    "serverId": "server-id"
+  }'
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+<ParamField path="key" type="string" required>
+  Storage key
+</ParamField>
+
+### Request Body
+
+<ParamField body="value" type="any" required>
+  Value to store (any JSON-serializable data)
+</ParamField>
+
+<ParamField body="serverId" type="string">
+  Optional server ID for server-scoped storage
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true
+</ResponseField>
+
+---
+
+## Get Plugin Statistics
+
+Get usage statistics for a plugin. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/plugins/{pluginId}/stats?days=30" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="days" type="number" default="30">
+  Number of days to analyze (max 365)
+</ParamField>
+
+### Response
+
+Returns plugin usage statistics including action counts, success rates, and performance metrics.
+
+---
+
+## Query Audit Log
+
+Query the plugin audit log with filters. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/plugins/audit?pluginId=plugin-id&limit=100" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="pluginId" type="string">
+  Filter by plugin ID
+</ParamField>
+
+<ParamField query="userId" type="string">
+  Filter by user ID
+</ParamField>
+
+<ParamField query="serverId" type="string">
+  Filter by server ID
+</ParamField>
+
+<ParamField query="result" type="string">
+  Filter by result: "success", "error", "denied"
+</ParamField>
+
+<ParamField query="limit" type="number" default="100">
+  Maximum number of entries to return
+</ParamField>
+
+<ParamField query="offset" type="number" default="0">
+  Number of entries to skip
+</ParamField>
+
+### Response
+
+Returns an array of audit log entries.
+
+---
+
+## Get Security Analysis
+
+Get security analysis and alerts for a plugin. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/plugins/{pluginId}/security \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Response
+
+<ResponseField name="alerts" type="array">
+  Array of security alerts and suspicious activity
+</ResponseField>
+
+---
+
+## Install Plugin from Git
+
+Install a plugin from a Git repository. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/plugins/install \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repoUrl": "https://github.com/username/plugin-name",
+    "branch": "main"
+  }'
+```
+</CodeGroup>
+
+### Request Body
+
+<ParamField body="repoUrl" type="string" required>
+  Git repository URL
+</ParamField>
+
+<ParamField body="branch" type="string" default="main">
+  Branch to install from
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="plugin" type="object">
+  Installed plugin object
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+**400 Bad Request** - Installation failed
+
+---
+
+## Update Plugin
+
+Update an installed plugin from its Git repository. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/plugins/{pluginId}/update \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true
+</ResponseField>
+
+<ResponseField name="plugin" type="object">
+  Updated plugin object
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+**400 Bad Request** - Update failed
+
+---
+
+## Get Security Report
+
+Get the security analysis report for a plugin. **Admin only.**
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/plugins/{pluginId}/security-report \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Path Parameters
+
+<ParamField path="pluginId" type="string" required>
+  Plugin ID
+</ParamField>
+
+### Response
+
+<ResponseField name="pluginId" type="string">
+  Plugin ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Plugin name
+</ResponseField>
+
+<ResponseField name="trustLevel" type="string">
+  Trust level: "official" or "community"
+</ResponseField>
+
+<ResponseField name="securityScore" type="number">
+  Security score (0-100, higher is safer)
+</ResponseField>
+
+<ResponseField name="securityReport" type="object">
+  Detailed security analysis
+  
+  <Expandable title="properties">
+    <ResponseField name="score" type="number">
+      Security score
+    </ResponseField>
+    <ResponseField name="riskLevel" type="string">
+      Risk level assessment
+    </ResponseField>
+    <ResponseField name="issues" type="array">
+      Security issues found
+    </ResponseField>
+    <ResponseField name="warnings" type="array">
+      Security warnings
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="analyzedAt" type="string">
+  ISO 8601 timestamp of last analysis
+</ResponseField>
+
+**404 Not Found** - Plugin not found

@@ -1,0 +1,560 @@
+---
+title: Plugin System
+description: Extend StellarStack with custom plugins and integrations
+---
+
+StellarStack's plugin system allows you to extend the panel with custom functionality, add support for new game types, integrate with third-party services, and automate server management tasks.
+
+## Overview
+
+Plugins are TypeScript/JavaScript modules that:
+- Hook into server lifecycle events
+- Add custom UI components to the panel
+- Register API routes
+- Execute operations on servers (install mods, configure files, etc.)
+- Integrate with external services (Discord, monitoring, backups)
+
+### Plugin SDK
+
+The `@stellarstack/plugin-sdk` provides:
+- Base `StellarPlugin` class
+- Type definitions for hooks and events
+- APIs for server/file operations
+- UI component interfaces
+
+## Creating a Plugin
+
+### Project Setup
+
+Create a new directory:
+
+```bash
+mkdir my-plugin
+cd my-plugin
+npm init -y
+npm install @stellarstack/plugin-sdk
+```
+
+### Plugin Structure
+
+```
+my-plugin/
+├── stellar-plugin.json    # Plugin manifest
+├── src/
+│   ├── index.ts          # Main plugin class
+│   └── components/       # UI components (optional)
+│       └── MyTab.tsx
+└── package.json
+```
+
+### Manifest File
+
+Create `stellar-plugin.json`:
+
+```json
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "version": "1.0.0",
+  "description": "A sample StellarStack plugin",
+  "author": "Your Name",
+  "license": "MIT",
+  "category": "utility",
+  "gameTypes": ["*"],
+  "permissions": ["server.files.read", "server.console.send"],
+  "hooks": [
+    "server:afterStart",
+    "server:console"
+  ]
+}
+```
+
+### Plugin Class
+
+Create `src/index.ts`:
+
+```typescript
+import { StellarPlugin, PluginContext, PluginManifest } from "@stellarstack/plugin-sdk";
+
+export default class MyPlugin extends StellarPlugin {
+  manifest: PluginManifest = {
+    id: "my-plugin",
+    name: "My Plugin",
+    version: "1.0.0",
+    description: "A sample plugin",
+    author: "Your Name",
+    license: "MIT",
+    category: "utility",
+  };
+
+  async onEnable(context: PluginContext): Promise<void> {
+    context.log.info("Plugin enabled!");
+
+    // Register hook handlers
+    context.on("server:afterStart", async (ctx) => {
+      context.log.info(`Server ${ctx.serverId} started`);
+      
+      // Send a welcome message to the console
+      await context.api.servers.sendCommand(
+        ctx.serverId,
+        "say Welcome! This server uses My Plugin"
+      );
+    });
+
+    context.on("server:console", async (ctx) => {
+      const output = ctx.data.output as string;
+      
+      // React to specific console output
+      if (output.includes("Player joined")) {
+        context.log.info("A player joined the server!");
+      }
+    });
+  }
+
+  async onDisable(context: PluginContext): Promise<void> {
+    context.log.info("Plugin disabled!");
+    // Cleanup is automatic - hooks are unregistered
+  }
+}
+```
+
+## Hook System
+
+### Available Hooks
+
+#### Server Lifecycle
+
+| Hook | Triggered When |
+|------|----------------|
+| `server:beforeStart` | Before server container starts |
+| `server:afterStart` | After server is running |
+| `server:beforeStop` | Before server stops |
+| `server:afterStop` | After server is stopped |
+| `server:beforeRestart` | Before server restarts |
+| `server:afterRestart` | After server restarts |
+| `server:beforeInstall` | Before installation runs |
+| `server:afterInstall` | After installation completes |
+| `server:statusChange` | When server status changes |
+| `server:created` | When a new server is created |
+| `server:deleted` | When a server is deleted |
+
+#### Console & Output
+
+| Hook | Triggered When |
+|------|----------------|
+| `server:console` | When console output is received |
+
+#### File Operations
+
+| Hook | Triggered When |
+|------|----------------|
+| `server:file:beforeWrite` | Before a file is written |
+| `server:file:afterWrite` | After a file is written |
+| `server:file:beforeDelete` | Before a file is deleted |
+| `server:file:afterDelete` | After a file is deleted |
+
+#### Backups & Schedules
+
+| Hook | Triggered When |
+|------|----------------|
+| `server:backup:beforeCreate` | Before backup starts |
+| `server:backup:afterCreate` | After backup completes |
+| `server:backup:beforeRestore` | Before restore starts |
+| `server:backup:afterRestore` | After restore completes |
+| `server:schedule:beforeExecute` | Before scheduled task runs |
+| `server:schedule:afterExecute` | After scheduled task completes |
+
+#### User Actions
+
+| Hook | Triggered When |
+|------|----------------|
+| `user:login` | When a user logs in |
+| `user:created` | When a new user is created |
+
+### Hook Context
+
+Every hook receives a `HookContext`:
+
+```typescript
+interface HookContext {
+  event: PluginHookEvent;        // The event type
+  serverId?: string;             // Server ID (if applicable)
+  userId?: string;               // User ID (if applicable)
+  data: Record<string, unknown>; // Event-specific data
+  timestamp: Date;               // When the event occurred
+}
+```
+
+### Hook Priority
+
+Control execution order:
+
+```typescript
+context.on("server:afterStart", handler, "high");
+```
+
+Priorities (executed in order):
+1. `critical`
+2. `high`
+3. `normal` (default)
+4. `low`
+
+## Plugin API
+
+### Server Operations
+
+```typescript
+// Get server info
+const server = await context.api.servers.get("server-id");
+
+// Send console command
+await context.api.servers.sendCommand("server-id", "say Hello!");
+
+// Get server status
+const status = await context.api.servers.getStatus("server-id");
+```
+
+### File Operations
+
+```typescript
+// List files
+const files = await context.api.files.list("server-id", "/");
+
+// Read file
+const content = await context.api.files.read("server-id", "server.properties");
+
+// Write file
+await context.api.files.write("server-id", "config.yml", "setting: value");
+
+// Download from URL
+await context.api.files.downloadUrl(
+  "server-id",
+  "https://example.com/mod.jar",
+  "/plugins/mod.jar"
+);
+```
+
+### Storage (Key-Value)
+
+Plugins get a private key-value store:
+
+```typescript
+// Save data
+await context.api.storage.set("last_backup", new Date().toISOString());
+
+// Load data
+const lastBackup = await context.api.storage.get<string>("last_backup");
+
+// Delete data
+await context.api.storage.delete("last_backup");
+
+// List keys
+const keys = await context.api.storage.keys();
+```
+
+### HTTP Client
+
+Make external API calls:
+
+```typescript
+// GET request
+const data = await context.api.http.get("https://api.example.com/status");
+
+// POST request
+await context.api.http.post(
+  "https://discord.com/api/webhooks/...",
+  { content: "Server started!" }
+);
+```
+
+### Logging
+
+```typescript
+context.log.info("Informational message");
+context.log.warn("Warning message");
+context.log.error("Error message");
+context.log.debug("Debug message (only in debug mode)");
+```
+
+## Extension Actions
+
+Actions are pre-defined operations that users can trigger from the UI.
+
+### Example: Install Plugin Action
+
+In `stellar-plugin.json`:
+
+```json
+{
+  "actions": [
+    {
+      "id": "install-mod",
+      "label": "Install Custom Mod",
+      "description": "Download and install a mod from a URL",
+      "icon": "download",
+      "params": [
+        {
+          "id": "url",
+          "label": "Mod URL",
+          "type": "string",
+          "required": true
+        },
+        {
+          "id": "filename",
+          "label": "Filename",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "operations": [
+        {
+          "type": "create-backup",
+          "name": "pre-mod-install"
+        },
+        {
+          "type": "download-to-server",
+          "url": "{{url}}",
+          "directory": "/mods",
+          "filename": "{{filename}}"
+        },
+        {
+          "type": "restart-server"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Users execute via:
+
+```bash
+POST /api/plugins/my-plugin/actions/install-mod
+{
+  "serverId": "abc-123",
+  "params": {
+    "url": "https://example.com/mod.jar",
+    "filename": "custom-mod.jar"
+  }
+}
+```
+
+### Operation Types
+
+| Operation | Description |
+|-----------|-------------|
+| `download-to-server` | Download file from URL to server |
+| `write-file` | Write content to a file |
+| `delete-file` | Delete a file or directory |
+| `send-command` | Send console command |
+| `restart-server` | Restart the server |
+| `stop-server` | Stop the server |
+| `start-server` | Start the server |
+| `create-backup` | Create a backup |
+
+## UI Extensions
+
+Add custom UI to the panel.
+
+### Server Tabs
+
+Add a tab to the server management page:
+
+```json
+{
+  "ui": {
+    "serverTabs": [
+      {
+        "id": "my-tab",
+        "label": "My Tab",
+        "icon": "puzzle",
+        "component": "./components/MyTab.tsx"
+      }
+    ]
+  }
+}
+```
+
+Component:
+
+```tsx
+import { ServerTabProps } from "@stellarstack/plugin-sdk";
+
+export default function MyTab({ serverId, server }: ServerTabProps) {
+  return (
+    <div>
+      <h2>Custom Tab for {server.name}</h2>
+      <p>Server ID: {serverId}</p>
+    </div>
+  );
+}
+```
+
+### Dashboard Widgets
+
+Add widgets to the server overview:
+
+```json
+{
+  "ui": {
+    "serverWidgets": [
+      {
+        "id": "my-widget",
+        "label": "My Widget",
+        "component": "./components/MyWidget.tsx",
+        "size": "medium"
+      }
+    ]
+  }
+}
+```
+
+Sizes: `small` (1x1), `medium` (2x1), `large` (2x2)
+
+## Installing Plugins
+
+### Via Panel UI
+
+1. Navigate to **Admin** → **Plugins**
+2. Click **Install Plugin**
+3. Upload plugin `.zip` file or provide GitHub URL
+4. Click **Enable**
+
+### Manual Installation
+
+Place plugin directory in:
+
+```
+/var/lib/stellarstack/plugins/my-plugin/
+```
+
+Restart the API:
+
+```bash
+sudo systemctl restart stellarstack-api
+```
+
+## Configuration
+
+Plugins can define settings:
+
+```json
+{
+  "configSchema": {
+    "webhookUrl": {
+      "type": "string",
+      "title": "Discord Webhook URL",
+      "description": "URL for Discord notifications"
+    },
+    "enabled": {
+      "type": "boolean",
+      "title": "Enable Notifications",
+      "default": true
+    }
+  },
+  "defaultConfig": {
+    "webhookUrl": "",
+    "enabled": true
+  }
+}
+```
+
+Access in code:
+
+```typescript
+const webhookUrl = context.config.webhookUrl as string;
+```
+
+## Example Plugins
+
+### Discord Notifications
+
+```typescript
+export default class DiscordPlugin extends StellarPlugin {
+  manifest = { /* ... */ };
+
+  async onEnable(context: PluginContext): Promise<void> {
+    const webhookUrl = context.config.webhookUrl as string;
+
+    if (!webhookUrl) {
+      context.log.warn("No webhook URL configured");
+      return;
+    }
+
+    context.on("server:afterStart", async (ctx) => {
+      const server = await context.api.servers.get(ctx.serverId!);
+      
+      await context.api.http.post(webhookUrl, {
+        content: `🟢 **${server.name}** started`,
+      });
+    });
+
+    context.on("server:afterStop", async (ctx) => {
+      const server = await context.api.servers.get(ctx.serverId!);
+      
+      await context.api.http.post(webhookUrl, {
+        content: `🔴 **${server.name}** stopped`,
+      });
+    });
+  }
+
+  async onDisable(context: PluginContext): Promise<void> {}
+}
+```
+
+### Auto Restart on Crash
+
+```typescript
+context.on("server:afterStop", async (ctx) => {
+  const exitState = ctx.data.exitState as { exitCode: number };
+  
+  if (exitState.exitCode !== 0) {
+    context.log.warn(`Server ${ctx.serverId} crashed, restarting...`);
+    
+    // Wait 5 seconds
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Start the server (via panel API)
+    await context.api.servers.sendCommand(ctx.serverId!, "__START__");
+  }
+});
+```
+
+## Best Practices
+
+<Warning>
+  Plugins run with elevated permissions. Always:
+  - Validate user input
+  - Handle errors gracefully
+  - Avoid blocking operations
+  - Test thoroughly before deploying
+</Warning>
+
+### Error Handling
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  try {
+    await context.api.files.write(ctx.serverId!, "log.txt", "Started");
+  } catch (error) {
+    context.log.error("Failed to write log", error);
+  }
+});
+```
+
+### Performance
+
+- Use `storage` API instead of frequent database queries
+- Debounce frequent events (e.g., console output)
+- Avoid synchronous operations in hooks
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plugin SDK Reference" icon="code" href="https://github.com/StellarStackOSS/StellarStack/tree/main/packages/plugin-sdk">
+    Full API documentation
+  </Card>
+  <Card title="Example Plugins" icon="puzzle" href="https://github.com/StellarStackOSS/stellarstack-plugins">
+    Community plugin repository
+  </Card>
+</CardGroup>

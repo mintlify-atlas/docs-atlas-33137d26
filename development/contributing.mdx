@@ -1,0 +1,283 @@
+---
+title: Contributing Guide
+description: Learn how to contribute to StellarStack with guidelines for code, commits, and pull requests
+---
+
+Thank you for your interest in contributing to StellarStack! This guide will help you get started with contributing to the project.
+
+## Code of Conduct
+
+By participating in this project, you agree to maintain a respectful and inclusive environment. Be kind, patient, and considerate to other contributors.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js** 20 or higher
+- **pnpm** 8 or higher
+- **PostgreSQL** 15 or higher
+- **Git** for version control
+- **Docker** for testing daemon integration
+
+## Making Changes
+
+### Branch Naming
+
+Branch names should use descriptive names. Including Linear ticket IDs is recommended but optional:
+
+**With Linear tickets (recommended):**
+
+```bash
+<type>/STE-<number>-<description>
+```
+
+**Examples:**
+- `feat/STE-123-add-backup-encryption` - New features
+- `fix/STE-456-console-reconnect-issue` - Bug fixes
+- `docs/STE-789-update-api-reference` - Documentation
+- `refactor/STE-321-cleanup-auth-middleware` - Code improvements
+
+**Without Linear tickets (also valid):**
+- `feat/add-backup-encryption`
+- `fix/console-reconnect-issue`
+- `docs/update-api-reference`
+- `refactor/cleanup-auth-middleware`
+
+### Commit Messages
+
+We use [Conventional Commits](https://www.conventionalcommits.org/) with **optional Linear ticket IDs**. Linear tickets are strongly recommended for tracking but not required.
+
+**Format:**
+
+```
+<type>: [STE-<number>] <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Commit Types:**
+
+| Type | Description |
+|------|-------------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation changes |
+| `style` | Code formatting (no logic change) |
+| `refactor` | Code restructuring |
+| `test` | Test additions or updates |
+| `chore` | Maintenance tasks |
+| `perf` | Performance improvements |
+| `ci` | CI/CD changes |
+| `build` | Build system changes |
+
+**Examples with Linear tickets (recommended):**
+
+```bash
+feat: STE-123 add webhook retry with exponential backoff
+fix: STE-456 resolve console disconnect on browser tab switch
+docs: STE-789 update installation instructions
+chore: STE-321 upgrade dependencies to latest versions
+```
+
+**Examples without Linear tickets (also valid):**
+
+```bash
+feat: add dark mode support
+fix: resolve memory leak in WebSocket handler
+docs: update API documentation
+chore: upgrade dependencies
+```
+
+<Note>
+**Getting Linear Tickets:**
+
+View tickets at [linear.app/stellarstack](https://linear.app/stellarstack). Create a new issue for your work before committing (recommended) and reference the ticket ID in your commit message for better tracking.
+</Note>
+
+**Commit Validation:**
+
+Git hooks will automatically validate your commit messages. Invalid commits will be rejected with a helpful error message. The hook checks:
+
+- Commit type is valid (feat, fix, docs, etc.)
+- Description is not empty
+
+If you see a validation error, fix your commit message:
+
+```bash
+# Fix the last commit message
+git commit --amend -m "feat: correct message format"
+```
+
+### Code Style
+
+- **TypeScript**: Use strict TypeScript with proper types
+- **Formatting**: Code is formatted with Prettier (run automatically on commit)
+- **Linting**: Follow ESLint rules
+- **Naming**: Use camelCase for variables/functions, PascalCase for components/types
+
+### Testing Your Changes
+
+Before submitting a PR, run the following checks:
+
+<Steps>
+  <Step title="Run type checking">
+    ```bash
+    pnpm typecheck
+    # or
+    npx tsc --noEmit
+    ```
+  </Step>
+  
+  <Step title="Run linting">
+    ```bash
+    pnpm lint
+    ```
+  </Step>
+  
+  <Step title="Test manually">
+    Test your changes manually in both development and production builds
+  </Step>
+</Steps>
+
+## Pull Requests
+
+### Before Submitting
+
+<Steps>
+  <Step title="Update from main">
+    ```bash
+    git fetch upstream
+    git rebase upstream/main
+    ```
+  </Step>
+  
+  <Step title="Test your changes">
+    Thoroughly test all functionality affected by your changes
+  </Step>
+  
+  <Step title="Update documentation">
+    Update relevant documentation if your changes affect user-facing features
+  </Step>
+</Steps>
+
+### PR Guidelines
+
+- **Title**: Use a clear, descriptive title
+- **Description**: Explain what changes you made and why
+- **Screenshots**: Include screenshots for UI changes
+- **Breaking Changes**: Clearly note any breaking changes
+
+### PR Checklist
+
+When opening a pull request, ensure you've completed:
+
+- [ ] My code follows the project's style guidelines
+- [ ] I have performed a self-review
+- [ ] I have added comments for hard-to-understand code
+- [ ] I have updated relevant documentation
+- [ ] My changes don't generate new warnings
+- [ ] I have tested my changes locally
+
+## Releases
+
+StellarStack uses automated releases powered by [release-please](https://github.com/googleapis/release-please). You don't need to worry about versioning or changelogs—they're generated automatically.
+
+### How It Works
+
+1. **Commit with Conventional Format**: Your commits following the conventional format drive the release process
+   - `feat:` commits trigger a **minor** version bump (0.1.0 → 0.2.0)
+   - `fix:` commits trigger a **patch** version bump (0.1.0 → 0.1.1)
+   - `BREAKING CHANGE:` in commit body triggers a **major** version bump (0.1.0 → 1.0.0)
+
+2. **Release PR Created**: When commits are merged to `master`, release-please automatically:
+   - Analyzes commits since last release
+   - Determines the next version number
+   - Generates a CHANGELOG.md with categorized changes
+   - Creates a pull request with these updates
+
+3. **Merge to Release**: When the release PR is merged:
+   - A GitHub release is created with the new version tag
+   - Linear ticket IDs in the changelog are automatically linked
+   - Docker images are built and pushed to Docker Hub
+   - The manifest file is updated with the new version
+
+### Linear Ticket Links
+
+Release notes automatically link Linear tickets. For example:
+
+- Commit: `feat: STE-123 add backup encryption`
+- Changelog: `feat: [STE-123](https://linear.app/stellarstack/issue/STE-123) add backup encryption`
+
+This makes it easy to trace changes back to their original issues.
+
+## Areas for Contribution
+
+### Good First Issues
+
+Look for issues labeled `good first issue` - these are beginner-friendly tasks.
+
+### High Priority Areas
+
+- **Documentation**: Improving guides and API docs
+- **Testing**: Adding unit and integration tests
+- **UI/UX**: Accessibility improvements
+- **Performance**: Optimizing slow operations
+- **Security**: Identifying and fixing vulnerabilities
+
+### Feature Requests
+
+Before starting work on a new feature:
+
+1. Check if an issue already exists
+2. Create an issue to discuss the feature
+3. Wait for maintainer feedback before starting
+
+## Reporting Bugs
+
+### Before Reporting
+
+1. Search existing issues to avoid duplicates
+2. Try reproducing with the latest version
+3. Check if it's a known issue in the README
+
+### Bug Report Template
+
+When reporting a bug, include:
+
+- **Description**: Clear description of the bug
+- **Steps to Reproduce**: Numbered list of steps
+- **Expected Behavior**: What should happen
+- **Actual Behavior**: What actually happens
+- **Environment**: OS, browser, Node.js version, StellarStack version
+- **Screenshots/Logs**: Relevant screenshots or error logs
+
+## Security Vulnerabilities
+
+<Warning>
+**Do not** report security vulnerabilities through public GitHub issues.
+</Warning>
+
+Instead, please email security@stellarstack.dev with:
+
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
+
+We will respond within 48 hours and work with you to address the issue.
+
+## Questions?
+
+- **Discord**: Join our Discord server for real-time help
+- **Discussions**: Use GitHub Discussions for questions
+- **Issues**: For bugs and feature requests
+
+## License
+
+By contributing to StellarStack, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+Thank you for contributing to StellarStack! Your help makes this project better for everyone.

@@ -1,0 +1,577 @@
+---
+title: Permissions
+description: Granular access control with 45+ permission nodes for server management, files, backups, and more
+---
+
+## Overview
+
+StellarStack uses a hierarchical permission system to control user access to server features. With 45+ permission nodes across 12 categories, you can create roles from view-only to full administrator access.
+
+<CardGroup cols={2}>
+  <Card title="45+ Permission Nodes" icon="shield">
+    Fine-grained control over every server action
+  </Card>
+  <Card title="Hierarchical Structure" icon="sitemap">
+    Category-based organization with wildcard support
+  </Card>
+  <Card title="Preset Roles" icon="users">
+    Viewer, Operator, and Admin presets for quick setup
+  </Card>
+  <Card title="Subuser Management" icon="user-plus">
+    Invite users with custom permission sets
+  </Card>
+</CardGroup>
+
+## Permission Structure
+
+Permissions follow a hierarchical pattern:
+
+```
+category.action
+```
+
+**Examples**:
+- `control.start` - Start server
+- `files.delete` - Delete files
+- `backups.restore` - Restore from backup
+
+### Wildcard Permissions
+
+Grant all permissions in a category:
+
+- `control.*` - All power control actions
+- `files.*` - All file operations
+- `*` - Full admin access to everything
+
+### Permission Matching
+
+The system checks permissions in order:
+
+1. **Wildcard `*`**: Full access, skip other checks
+2. **Category wildcard** (e.g., `control.*`): All actions in category
+3. **Exact permission** (e.g., `control.start`): Specific action only
+
+## Permission Categories
+
+StellarStack organizes permissions into 12 categories:
+
+### 1. Power Controls
+
+Manage server power state:
+
+| Permission | Description |
+|------------|-------------|
+| `control.start` | Start the server |
+| `control.stop` | Stop the server gracefully |
+| `control.restart` | Restart the server |
+| `control.kill` | Forcefully kill server process |
+
+**Wildcard**: `control.*`
+
+### 2. Console
+
+Access server console:
+
+| Permission | Description |
+|------------|-------------|
+| `console.read` | View server console output |
+| `console.write` | Send commands to server console |
+
+**Wildcard**: `console.*`
+
+### 3. File Manager
+
+Manage server files:
+
+| Permission | Description |
+|------------|-------------|
+| `files.read` | View and download files |
+| `files.write` | Edit existing files |
+| `files.create` | Create new files and folders |
+| `files.delete` | Delete files and folders |
+| `files.archive` | Create and extract archives |
+| `files.sftp` | Connect via SFTP |
+
+**Wildcard**: `files.*`
+
+### 4. Backups
+
+Manage server backups:
+
+| Permission | Description |
+|------------|-------------|
+| `backups.read` | View list of backups |
+| `backups.create` | Create new backups (also lock/unlock) |
+| `backups.delete` | Delete unlocked backups |
+| `backups.restore` | Restore server from backup |
+| `backups.download` | Download backup files |
+
+**Wildcard**: `backups.*`
+
+### 5. Network Allocations
+
+Manage IP:Port allocations:
+
+| Permission | Description |
+|------------|-------------|
+| `allocations.read` | View server allocations |
+| `allocations.create` | Add new allocations to server |
+| `allocations.delete` | Remove allocations from server |
+| `allocations.update` | Set primary allocation |
+
+**Wildcard**: `allocations.*`
+
+### 6. Startup Configuration
+
+Modify startup settings:
+
+| Permission | Description |
+|------------|-------------|
+| `startup.read` | View startup configuration |
+| `startup.update` | Edit startup variables |
+| `startup.docker-image` | Change server's Docker image |
+
+**Wildcard**: `startup.*`
+
+### 7. Server Settings
+
+Manage server metadata:
+
+| Permission | Description |
+|------------|-------------|
+| `settings.read` | View server settings |
+| `settings.rename` | Change server name |
+| `settings.description` | Edit server description |
+| `settings.reinstall` | Reinstall the server (destructive) |
+
+**Wildcard**: `settings.*`
+
+### 8. Activity Logs
+
+View audit trail:
+
+| Permission | Description |
+|------------|-------------|
+| `activity.read` | View server activity logs |
+
+**Wildcard**: `activity.*`
+
+### 9. Schedules
+
+Manage scheduled tasks:
+
+| Permission | Description |
+|------------|-------------|
+| `schedules.read` | View scheduled tasks |
+| `schedules.create` | Create new scheduled tasks |
+| `schedules.update` | Edit existing scheduled tasks |
+| `schedules.delete` | Delete scheduled tasks |
+
+**Wildcard**: `schedules.*`
+
+### 10. Subusers
+
+Manage server access:
+
+| Permission | Description |
+|------------|-------------|
+| `users.read` | View server subusers |
+| `users.create` | Invite new subusers |
+| `users.update` | Edit subuser permissions |
+| `users.delete` | Remove subusers from server |
+
+**Wildcard**: `users.*`
+
+### 11. Databases
+
+Manage server databases:
+
+| Permission | Description |
+|------------|-------------|
+| `database.read` | View database list |
+| `database.create` | Create new databases |
+| `database.delete` | Delete databases |
+| `database.view-password` | View database passwords |
+
+**Wildcard**: `database.*`
+
+### 12. Server Splitting
+
+Split server resources:
+
+| Permission | Description |
+|------------|-------------|
+| `split.read` | View child servers from splitting |
+| `split.create` | Create child servers by splitting resources |
+| `split.delete` | Delete child servers |
+
+**Wildcard**: `split.*`
+
+## Preset Roles
+
+StellarStack provides three preset permission sets:
+
+### Viewer
+
+Read-only access to server information:
+
+```json
+[
+  "console.read",
+  "files.read",
+  "backups.read",
+  "allocations.read",
+  "startup.read",
+  "settings.read",
+  "activity.read",
+  "schedules.read",
+  "users.read"
+]
+```
+
+**Use Cases**:
+- Monitoring server status
+- Viewing logs and files
+- Checking configurations
+- Auditing activity
+
+### Operator
+
+Manage day-to-day server operations:
+
+```json
+[
+  "control.start",
+  "control.stop",
+  "control.restart",
+  "console.read",
+  "console.write",
+  "files.read",
+  "files.write",
+  "files.create",
+  "backups.read",
+  "backups.create",
+  "allocations.read",
+  "startup.read",
+  "settings.read",
+  "activity.read",
+  "schedules.read",
+  "schedules.create"
+]
+```
+
+**Use Cases**:
+- Server restarts and management
+- File editing and uploads
+- Console command execution
+- Creating backups
+- Managing schedules
+
+### Admin
+
+Full server access:
+
+```json
+["*"]
+```
+
+**Use Cases**:
+- Server ownership
+- Complete control
+- Can manage subusers
+- Can delete/modify anything
+
+## Managing Subusers
+
+Server owners can invite users with custom permissions:
+
+### Inviting a Subuser
+
+<Steps>
+  <Step title="Navigate to Subusers">
+    **Server** → **Subusers** → **Add Subuser**
+  </Step>
+  
+  <Step title="Enter Email">
+    Email address of the user to invite (must have a panel account)
+  </Step>
+  
+  <Step title="Select Permissions">
+    Choose from:
+    - Preset roles (Viewer, Operator, Admin)
+    - Custom permission set
+    - Individual permission nodes
+  </Step>
+  
+  <Step title="Send Invitation">
+    User receives email notification and gains access immediately
+  </Step>
+</Steps>
+
+**Required Permission**: `users.create`
+
+### Editing Subuser Permissions
+
+1. Navigate to **Server** → **Subusers**
+2. Click **Edit** on target subuser
+3. Modify permissions:
+   - Add/remove individual permissions
+   - Switch to different preset
+   - Grant/revoke category wildcards
+4. Click **Save**
+5. Changes apply immediately
+
+**Required Permission**: `users.update`
+
+### Removing Subusers
+
+1. Navigate to **Server** → **Subusers**
+2. Click **Delete** on target subuser
+3. Confirm removal
+4. User loses all access to server
+
+**Required Permission**: `users.delete`
+
+## Permission Use Cases
+
+### Example 1: Moderator Role
+
+Allow moderators to manage players but not server configuration:
+
+```json
+[
+  "console.read",
+  "console.write",
+  "activity.read"
+]
+```
+
+**Can Do**:
+- View console output
+- Execute commands (kick, ban, teleport)
+- View activity logs
+
+**Cannot Do**:
+- Start/stop server
+- Edit files
+- Create backups
+- Modify settings
+
+### Example 2: Developer Role
+
+Allow developers to edit files and view logs:
+
+```json
+[
+  "console.read",
+  "files.read",
+  "files.write",
+  "files.create",
+  "files.sftp",
+  "backups.read",
+  "backups.create"
+]
+```
+
+**Can Do**:
+- View console
+- Edit configuration files
+- Upload plugins/mods via SFTP
+- Create backups before changes
+
+**Cannot Do**:
+- Start/stop server (ask operator)
+- Delete files (safety)
+- Restore backups (destructive)
+
+### Example 3: Backup Manager
+
+Dedicated role for backup management:
+
+```json
+[
+  "backups.*",
+  "files.read"
+]
+```
+
+**Can Do**:
+- Create backups
+- Download backups
+- Restore from backups
+- Lock/unlock backups
+- View files (for backup verification)
+
+**Cannot Do**:
+- Edit files
+- Execute console commands
+- Change server settings
+
+### Example 4: Network Administrator
+
+Manage allocations and network settings:
+
+```json
+[
+  "allocations.*",
+  "settings.read"
+]
+```
+
+**Can Do**:
+- Add/remove port allocations
+- Set primary allocation
+- View server settings
+
+**Cannot Do**:
+- Start/stop server
+- Edit files
+- Execute commands
+
+## Permission Validation
+
+The system validates permissions on every action:
+
+### Client-Side (UI)
+
+Buttons and features are hidden/disabled based on permissions:
+
+```tsx
+{hasPermission("control.start") && (
+  <Button onClick={startServer}>Start Server</Button>
+)}
+```
+
+If user lacks permission, UI elements don't appear.
+
+### Server-Side (API)
+
+All API endpoints enforce permissions:
+
+```typescript
+// Example: Start server endpoint
+servers.post("/:serverId/start", requireServerAccess, async (c) => {
+  const user = c.get("user")
+  const server = c.get("server")
+  
+  if (!hasPermission(user.permissions, "control.start")) {
+    return c.json({ error: "Missing permission: control.start" }, 403)
+  }
+  
+  // Start server...
+})
+```
+
+Attempting unauthorized actions returns:
+```json
+{
+  "error": "Missing permission: control.start",
+  "code": 403
+}
+```
+
+## Server Ownership
+
+The server owner (creator) has implicit permissions:
+
+- **Automatic `*` Wildcard**: Owner has all permissions
+- **Cannot Be Removed**: Owner cannot be deleted as a subuser
+- **Cannot Be Downgraded**: Owner permissions cannot be reduced
+- **Can Transfer Ownership**: Admin can change server owner
+
+Ownership is tracked via `ownerId` field on server record.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Principle of Least Privilege">
+    Grant only the permissions users need:
+    - Start with Viewer role
+    - Add permissions as needed
+    - Avoid blanket `*` wildcard
+    - Review permissions regularly
+  </Accordion>
+  
+  <Accordion title="Use Preset Roles">
+    Leverage presets when possible:
+    - Faster setup
+    - Well-tested permission sets
+    - Easy to understand
+    - Customize from preset baseline
+  </Accordion>
+  
+  <Accordion title="Separate Concerns">
+    Create role-specific permission sets:
+    - Moderators: Console + activity
+    - Developers: Files + backups
+    - Operators: Power + console + files
+    - Backup managers: Backups only
+  </Accordion>
+  
+  <Accordion title="Audit Subuser Access">
+    Regularly review who has access:
+    - Remove inactive subusers
+    - Downgrade over-privileged users
+    - Check activity logs
+    - Rotate access for contractors
+  </Accordion>
+  
+  <Accordion title="Protect Destructive Permissions">
+    Be cautious with:
+    - `settings.reinstall` - Wipes server data
+    - `backups.restore` - Replaces current files
+    - `files.delete` - Permanent file deletion
+    - `users.delete` - Remove team members
+    
+    Grant only to trusted users.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### User Cannot Access Feature
+
+**Symptoms**: Button grayed out or feature missing
+
+**Solution**:
+1. Check user's permission list
+2. Verify required permission exists
+3. Grant missing permission
+4. User may need to refresh page
+
+### Permission Changes Not Applied
+
+**Symptoms**: User still has old permissions after edit
+
+**Solution**:
+1. Verify changes were saved
+2. Ask user to log out and back in
+3. Check for client-side caching
+4. Clear browser cookies/storage
+
+### Cannot Grant Permission
+
+**Symptoms**: Permission option not available when editing
+
+**Cause**: You lack `users.update` permission yourself
+
+**Solution**: Ask server owner or admin to grant permission
+
+### Subuser Invite Not Working
+
+**Symptoms**: Cannot add subuser
+
+**Causes**:
+1. **No `users.create` permission**: Ask owner to grant
+2. **Email not registered**: User must create panel account first
+3. **Already a subuser**: Cannot invite same user twice
+
+## Future Enhancements
+
+Planned permission features:
+
+- **Permission Templates**: Save/load custom permission sets
+- **Time-Based Permissions**: Grant access for limited duration
+- **IP Restrictions**: Limit access to specific IP ranges
+- **2FA Requirement**: Require two-factor auth for sensitive permissions
+- **Audit Logs**: Detailed permission change history

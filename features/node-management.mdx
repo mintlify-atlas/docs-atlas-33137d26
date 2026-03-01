@@ -1,0 +1,369 @@
+---
+title: Node Management
+description: Deploy and manage daemon nodes that host game servers across multiple locations
+---
+
+## Overview
+
+Nodes are the physical or virtual servers that run the StellarStack daemon and host game server containers. Each node represents a machine in your infrastructure with allocated CPU, memory, and disk resources.
+
+<CardGroup cols={2}>
+  <Card title="Multi-Node Support" icon="server">
+    Deploy game servers across multiple machines for scalability
+  </Card>
+  <Card title="Location-Based" icon="map-pin">
+    Organize nodes by geographic location for low-latency gameplay
+  </Card>
+  <Card title="Health Monitoring" icon="heart-pulse">
+    Real-time online/offline status with heartbeat latency tracking
+  </Card>
+  <Card title="Resource Allocation" icon="gauge-high">
+    Define CPU cores, memory (GB), and disk (GB) limits per node
+  </Card>
+</CardGroup>
+
+## Node Architecture
+
+StellarStack uses a distributed architecture:
+
+- **Panel**: Central management web interface (this application)
+- **Daemon**: Rust-based daemon runs on each node, managing Docker containers
+- **WebSocket**: Real-time communication between panel and daemon
+- **Token Authentication**: Each node has a unique token for secure communication
+
+```
+┌─────────────┐
+│ Panel (Web) │
+└──────┬──────┘
+       │ HTTP/WebSocket
+       │
+   ┌───┴────────┬────────────┬─────────────┐
+   │            │            │             │
+┌──▼──┐     ┌──▼──┐     ┌──▼──┐      ┌──▼──┐
+│Node1│     │Node2│     │Node3│  ... │NodeN│
+└─────┘     └─────┘     └─────┘      └─────┘
+Daemon      Daemon      Daemon       Daemon
+```
+
+## Creating a Node
+
+Administrators can add nodes from **Admin** → **Nodes** → **Add Node**.
+
+### Required Information
+
+<AccordionGroup>
+  <Accordion title="Display Name">
+    Friendly name shown in the panel (e.g., "US West Node 1")
+  </Accordion>
+  
+  <Accordion title="Host & Port">
+    - **Host**: IP address or domain where the daemon is accessible
+    - **Port**: Daemon API port (default: 8080)
+    - **Protocol**: HTTP, HTTPS, or HTTPS_PROXY
+  </Accordion>
+  
+  <Accordion title="Resource Limits">
+    - **CPU Cores**: Number of physical/virtual cores (e.g., 4)
+    - **Memory**: Total RAM in GB (e.g., 8)
+    - **Disk**: Total storage in GB (e.g., 50)
+    
+    These limits determine how many servers can be created on this node.
+  </Accordion>
+  
+  <Accordion title="Network Configuration">
+    - **SFTP Port**: Port for SFTP file access (default: 2022)
+    - **Upload Limit**: Maximum file upload size in MB (default: 100)
+  </Accordion>
+  
+  <Accordion title="Location Assignment (Optional)">
+    Associate the node with a geographic location for organization and display.
+  </Accordion>
+</AccordionGroup>
+
+### Node Credentials
+
+After creating a node, you'll receive:
+
+- **Token ID**: Unique identifier for the daemon
+- **Token**: Secret authentication token (base64url encoded)
+
+<Warning>
+  The token is shown **only once**. Copy and save it immediately. You'll need both the Token ID and Token to configure the daemon.
+</Warning>
+
+## Daemon Configuration
+
+On your node server, configure the daemon with the credentials:
+
+```bash
+# Example daemon configuration
+TOKEN_ID="abc123-def456-ghi789"
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+API_PORT=8080
+SFTP_PORT=2022
+```
+
+The daemon authenticates with the panel using:
+```
+Authorization: Bearer {token_id}.{token}
+```
+
+## Node Status
+
+Nodes display their current status in the panel:
+
+<Tabs>
+  <Tab title="Online">
+    <div className="flex items-center gap-2">
+      <span className="h-2 w-2 rounded-full bg-green-400" />
+      <span>Daemon is connected and responding to heartbeats</span>
+    </div>
+    
+    - Accepts new server deployments
+    - Real-time stats available
+    - Servers can start/stop
+  </Tab>
+  
+  <Tab title="Offline">
+    <div className="flex items-center gap-2">
+      <span className="h-2 w-2 rounded-full bg-zinc-500" />
+      <span>Daemon is unreachable or not responding</span>
+    </div>
+    
+    - Cannot create new servers
+    - Existing servers are inaccessible
+    - Heartbeat latency shows connection issues
+  </Tab>
+</Tabs>
+
+### Heartbeat Monitoring
+
+The panel continuously pings each node to check availability:
+
+- **Heartbeat Interval**: Every 30 seconds
+- **Latency Display**: Shows round-trip time in milliseconds
+- **Auto-Status Update**: Nodes marked offline if heartbeat fails
+
+## Resource Tracking
+
+StellarStack tracks resource allocation across all servers on a node:
+
+### Available Resources
+
+When creating a server, the panel checks:
+
+```javascript
+// Example validation
+usedMemory + newServerMemory <= nodeMemoryLimit
+usedDisk + newServerDisk <= nodeDiskLimit
+usedCpuCores + newServerCpuCores <= nodeCpuLimit
+```
+
+### Overallocation Prevention
+
+The panel prevents resource overcommitment:
+
+- Sum of all server allocations cannot exceed node limits
+- Admins cannot create servers if resources are exhausted
+- Clear error messages when resources are insufficient
+
+<Info>
+  Resource limits are **hard limits**. If a node has 8 GB RAM with 7 GB allocated to servers, you can only create servers with ≤1 GB RAM.
+</Info>
+
+## Locations
+
+Organize nodes by geographic region using locations.
+
+### Creating Locations
+
+Navigate to **Admin** → **Locations** → **Add Location**
+
+**Required Fields**:
+- **Name**: Location identifier (e.g., "US West", "EU Central")
+- **Country**: ISO country code or full name (optional)
+- **City**: City name (optional)
+- **Description**: Additional context (optional)
+
+### Assigning Nodes to Locations
+
+When creating or editing a node, select a location from the dropdown. This:
+
+- Groups nodes in the UI for easier management
+- Displays location in server details (e.g., "Los Angeles, US")
+- Helps users choose low-latency nodes for their region
+
+## Node Details
+
+View comprehensive information about a node:
+
+### Basic Information
+- Display name
+- Connection URL (protocol://host:port)
+- Online/offline status
+- Heartbeat latency
+
+### Resource Overview
+- CPU: 4 cores
+- RAM: 8 GB
+- Disk: 50 GB
+- SFTP Port: 2022
+- Upload Limit: 100 MB
+
+### Assigned Servers
+List of all servers hosted on this node with:
+- Server names
+- Resource allocations
+- Current status
+- Quick actions (view, stop, restart)
+
+### Allocations
+IP:Port allocations available or assigned to servers on this node.
+
+## Editing Nodes
+
+Administrators can modify node configuration:
+
+1. Navigate to the node details page
+2. Click **Edit** button
+3. Update allowed fields:
+   - Display name
+   - Resource limits (CPU, memory, disk)
+   - SFTP port
+   - Upload limit
+   - Location assignment
+
+<Warning>
+  You cannot change the host, port, or protocol after creation. Changing resource limits below current usage will fail.
+</Warning>
+
+## Deleting Nodes
+
+Remove a node from the panel:
+
+1. Navigate to **Admin** → **Nodes**
+2. Click **Delete** on the target node
+3. Confirm the destructive action
+
+**Requirements**:
+- Node must have no assigned servers
+- All allocations must be unassigned
+
+<Note>
+  Deleting a node from the panel does NOT uninstall the daemon. The daemon will continue running but won't receive server deployments.
+</Note>
+
+## SFTP Access
+
+Each node runs an SFTP server for file access:
+
+- **Port**: Configurable (default: 2022)
+- **Authentication**: Username format: `{server_id}.{user_email}`
+- **Password**: User's account password
+- **Chroot**: Automatically jailed to `/home/container` per server
+
+### Connection Example
+
+```bash
+sftp -P 2022 abc123-def456.user@example.com@node-host.com
+```
+
+The daemon handles:
+- User authentication via panel API
+- Permission validation
+- Automatic directory restriction to server files
+
+## Communication Protocols
+
+### HTTP/HTTPS API
+
+The panel communicates with daemons via REST API:
+
+**Endpoints**:
+- `POST /api/servers` - Create server container
+- `POST /api/servers/{id}/power` - Power actions (start, stop, restart, kill)
+- `POST /api/servers/{id}/install` - Trigger installation
+- `POST /api/servers/{id}/sync` - Sync configuration changes
+- `GET /api/servers/{id}` - Fetch server state
+- `DELETE /api/servers/{id}` - Remove server container
+
+### WebSocket Connection
+
+Real-time bidirectional communication:
+
+**Panel → Daemon**:
+- Console commands
+- Power actions
+- File operations
+
+**Daemon → Panel**:
+- Console output stream
+- Resource statistics (CPU, memory, network)
+- Installation progress
+- State changes
+
+### Security
+
+All daemon communication uses:
+
+- **Token-based authentication**: Bearer token with node ID
+- **SSRF protection**: Host validation prevents internal network access
+- **TLS encryption**: HTTPS protocol for production deployments
+- **Request signing**: Prevents token replay attacks
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Multiple Nodes for Redundancy">
+    Don't put all servers on one node. Distribute across multiple nodes for:
+    - High availability
+    - Load balancing
+    - Geographic distribution
+  </Accordion>
+  
+  <Accordion title="Monitor Node Health">
+    Regularly check:
+    - Heartbeat latency (should be less than 50ms on local networks)
+    - Resource utilization
+    - Disk space availability
+  </Accordion>
+  
+  <Accordion title="Group by Location">
+    Create locations for each region:
+    - US East, US West, EU, Asia
+    - Helps users choose low-latency nodes
+    - Organize billing by region
+  </Accordion>
+  
+  <Accordion title="Set Realistic Resource Limits">
+    Don't set node limits to 100% of hardware:
+    - Leave 10-20% headroom for OS overhead
+    - Account for Docker daemon memory usage
+    - Monitor actual resource consumption
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Node Shows Offline
+
+1. **Check daemon service**: Ensure daemon is running on the node
+2. **Verify network connectivity**: Panel must reach node on configured port
+3. **Check firewall**: Allow inbound traffic on daemon port (8080) and SFTP port (2022)
+4. **Validate token**: Ensure daemon is using correct token ID and token
+5. **Review daemon logs**: Check for authentication or connection errors
+
+### Cannot Create Server (Insufficient Resources)
+
+1. **Check resource usage**: View total allocated vs. available on node
+2. **Increase node limits**: Edit node to increase CPU/RAM/disk
+3. **Remove unused servers**: Delete stopped servers to free resources
+4. **Deploy to different node**: Choose a node with available capacity
+
+### SFTP Connection Fails
+
+1. **Verify SFTP port**: Ensure port is open and daemon is listening
+2. **Check credentials**: Format must be `{server_id}.{user_email}`
+3. **Confirm user password**: SFTP uses panel account password
+4. **Review daemon logs**: Check authentication errors
+5. **Test with verbose mode**: `sftp -v` for detailed connection info

@@ -1,0 +1,459 @@
+---
+title: Monorepo Structure
+description: Understanding StellarStack's monorepo organization and how packages work together
+---
+
+StellarStack uses a monorepo managed by [pnpm workspaces](https://pnpm.io/workspaces) and [Turborepo](https://turbo.build/) for efficient development and builds.
+
+## Overview
+
+The monorepo is organized into two main directories:
+
+- **`apps/`** - Deployable applications (API, web panel, docs, etc.)
+- **`packages/`** - Shared libraries and configurations
+
+## Directory Structure
+
+```
+stellarstack/
+├── apps/
+│   ├── api/               # Backend API (Hono + Prisma)
+│   ├── web/               # Frontend panel (Next.js)
+│   ├── home/              # Landing page (Next.js)
+│   ├── docs/              # Documentation site (Mintlify)
+│   ├── api-docs/          # API documentation
+│   ├── desktop/           # Desktop app (Tauri)
+│   ├── daemon/            # Daemon node (Rust)
+│   └── storybook/         # Component playground
+├── packages/
+│   ├── ui/                # Shared UI components
+│   ├── eslint-config/     # Shared ESLint configs
+│   ├── typescript-config/ # Shared TypeScript configs
+│   └── plugin-sdk/        # Plugin development SDK
+├── .github/
+│   └── workflows/         # CI/CD pipelines
+├── docker/
+│   ├── dockerfiles/       # API and web Dockerfiles
+│   └── daemon-release.yml # Daemon build workflow
+├── package.json           # Root package.json
+├── pnpm-workspace.yaml    # pnpm workspace config
+├── turbo.json             # Turborepo configuration
+└── install-script.sh      # Ubuntu installer
+```
+
+## Apps
+
+### API (`apps/api/`)
+
+The backend API server built with Hono and Prisma.
+
+**Structure:**
+```
+api/
+├── src/
+│   ├── routes/            # API endpoints
+│   ├── middleware/        # Auth, rate limiting, CORS
+│   ├── lib/               # Utilities (auth, crypto, validation)
+│   └── index.ts           # Entry point
+├── prisma/                # Database schema and migrations
+│   ├── schema.prisma      # Database schema
+│   └── migrations/        # Migration files
+├── .env.example           # Environment variables template
+└── package.json           # Dependencies and scripts
+```
+
+**Key Technologies:**
+- Hono (web framework)
+- Prisma (ORM)
+- Better Auth (authentication)
+- WebSocket (real-time updates)
+
+### Web (`apps/web/`)
+
+The frontend panel built with Next.js 15.
+
+**Structure:**
+```
+web/
+├── app/                   # App Router pages
+│   ├── (auth)/            # Authentication pages
+│   ├── (dashboard)/       # Dashboard pages
+│   └── layout.tsx         # Root layout
+├── components/            # React components
+│   ├── ui/                # Base UI components
+│   └── features/          # Feature-specific components
+├── hooks/                 # Custom React hooks
+├── lib/                   # Utilities & API client
+├── .env.example           # Environment variables template
+└── package.json           # Dependencies and scripts
+```
+
+**Key Technologies:**
+- Next.js 15 (React framework)
+- React 19 (UI library)
+- Tailwind CSS (styling)
+- shadcn/ui (component library)
+- TanStack Query (data fetching)
+
+### Home (`apps/home/`)
+
+The marketing landing page built with Next.js.
+
+**Purpose:**
+- Public-facing website
+- Product information
+- Marketing content
+
+### Docs (`apps/docs/`)
+
+The documentation site you're reading right now, built with Mintlify.
+
+**Structure:**
+```
+docs/
+├── introduction/          # Getting started guides
+├── deployment/            # Installation and setup
+├── features/              # Feature documentation
+├── api-reference/         # API documentation
+├── development/           # Contributing guides
+├── mint.json              # Mintlify configuration
+└── package.json           # Dependencies
+```
+
+### Desktop (`apps/desktop/`)
+
+A desktop application built with Tauri for native desktop experience.
+
+### Daemon (`apps/daemon/`)
+
+The Rust daemon that runs on each node to manage Docker containers.
+
+**Key Responsibilities:**
+- Container lifecycle management
+- Resource monitoring
+- Console streaming
+- File system operations
+
+### Storybook (`apps/storybook/`)
+
+Component playground for developing and testing UI components in isolation.
+
+## Packages
+
+### UI (`packages/ui/`)
+
+Shared UI components used across web, home, and docs applications.
+
+**Structure:**
+```
+ui/
+├── components/            # Reusable components
+│   ├── button.tsx
+│   ├── card.tsx
+│   └── ...
+├── hooks/                 # Shared hooks
+├── lib/                   # Utilities
+└── package.json           # Dependencies
+```
+
+**Usage:**
+```tsx
+import { Button } from "@stellarUI/button";
+```
+
+### ESLint Config (`packages/eslint-config/`)
+
+Shared ESLint configurations for consistent code style.
+
+**Configurations:**
+- Base config for all TypeScript projects
+- React-specific config for Next.js apps
+- Library config for packages
+
+**Usage:**
+```json
+{
+  "extends": ["@workspace/eslint-config"]
+}
+```
+
+### TypeScript Config (`packages/typescript-config/`)
+
+Shared TypeScript configurations for type safety.
+
+**Configurations:**
+- Base config with strict mode
+- Next.js config for App Router
+- Library config for packages
+
+**Usage:**
+```json
+{
+  "extends": "@workspace/typescript-config/nextjs.json"
+}
+```
+
+### Plugin SDK (`packages/plugin-sdk/`)
+
+SDK for developing custom game server plugins.
+
+## Workspace Configuration
+
+### pnpm Workspaces
+
+The `pnpm-workspace.yaml` file defines workspace packages:
+
+```yaml
+packages:
+  - "apps/*"
+  - "packages/*"
+```
+
+This allows:
+- Shared `node_modules` for common dependencies
+- Cross-package dependencies using `workspace:*` protocol
+- Single `pnpm install` for entire monorepo
+
+### Turborepo Configuration
+
+The `turbo.json` file defines build pipelines:
+
+```json
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    }
+  }
+}
+```
+
+**Key Features:**
+- **Dependency Graph**: Builds packages in correct order
+- **Caching**: Skips unchanged tasks for faster builds
+- **Parallel Execution**: Runs independent tasks concurrently
+- **TUI**: Terminal UI for monitoring tasks
+
+## Package Scripts
+
+The root `package.json` defines workspace-wide commands:
+
+### Build Commands
+
+```bash
+# Build all apps and packages
+pnpm build
+
+# Build specific app
+pnpm build:api
+pnpm build:web
+pnpm build:home
+pnpm build:docs
+```
+
+### Development Commands
+
+```bash
+# Start all development servers
+pnpm dev
+
+# Start specific service
+pnpm --filter @workspace/api dev
+pnpm --filter web dev
+```
+
+### Quality Commands
+
+```bash
+# Run linting across all packages
+pnpm lint
+
+# Format all files
+pnpm format
+
+# Check formatting without writing
+pnpm format:check
+
+# Type check all TypeScript
+pnpm typecheck
+```
+
+### Production Commands
+
+```bash
+# Start API server in production
+pnpm start:api
+
+# Start web panel in production
+pnpm start:web
+
+# Start docs on port 8080
+pnpm start:docs
+```
+
+## Dependency Management
+
+### Adding Dependencies
+
+**Add to specific workspace:**
+```bash
+# Add to API
+pnpm --filter @workspace/api add hono
+
+# Add to web panel
+pnpm --filter web add next
+
+# Add to UI package
+pnpm --filter @stellarUI add react
+```
+
+**Add to root (dev dependencies):**
+```bash
+pnpm add -D -w prettier
+```
+
+### Workspace Dependencies
+
+To use a package from the monorepo:
+
+```json
+{
+  "dependencies": {
+    "@stellarUI": "workspace:*"
+  }
+}
+```
+
+The `workspace:*` protocol ensures:
+- Always uses local version during development
+- Resolves to published version in production
+- Type definitions stay in sync
+
+## Build Optimization
+
+### Turborepo Caching
+
+Turborepo caches task outputs based on:
+- Input files (source code)
+- Dependencies (package.json, lockfile)
+- Environment variables (.env files)
+- Task configuration (turbo.json)
+
+**Cache hits** skip task execution entirely, making subsequent builds nearly instant.
+
+### Parallel Execution
+
+Turborepo automatically:
+- Builds independent packages in parallel
+- Respects dependency order (`dependsOn`)
+- Maximizes CPU utilization
+- Shows progress in TUI
+
+## Best Practices
+
+### Code Sharing
+
+<Tip>
+**When to create a shared package:**
+- Code is used by 2+ apps
+- Logic is independent and reusable
+- You want to enforce API boundaries
+</Tip>
+
+<Warning>
+**Avoid over-sharing:**
+- Don't share code just because it's possible
+- Keep app-specific logic in apps
+- Shared packages should have clear ownership
+</Warning>
+
+### Versioning
+
+The monorepo uses a single version for all packages:
+- Version defined in root `package.json`
+- Updated automatically by release-please
+- All packages released together
+
+### Testing
+
+Run tests for specific packages:
+
+```bash
+# Test API
+pnpm --filter @workspace/api test
+
+# Test web panel
+pnpm --filter web test
+
+# Test all packages
+pnpm test
+```
+
+### CI/CD Integration
+
+GitHub Actions workflows leverage Turborepo:
+
+```yaml
+- name: Build
+  run: pnpm build
+  # Turborepo automatically:
+  # - Uses remote caching
+  # - Builds only changed packages
+  # - Runs tasks in parallel
+```
+
+## Troubleshooting
+
+### Clear Cache
+
+If you encounter build issues:
+
+```bash
+# Clear Turborepo cache
+pnpm turbo clean
+
+# Clear pnpm cache
+pnpm store prune
+
+# Reinstall dependencies
+rm -rf node_modules
+pnpm install
+```
+
+### Dependency Conflicts
+
+Ensure all packages use compatible versions:
+
+```bash
+# Check for dependency issues
+pnpm list --depth 0
+
+# Update all dependencies
+pnpm update -r
+```
+
+### Type Errors
+
+If TypeScript can't find workspace packages:
+
+```bash
+# Rebuild all packages
+pnpm build
+
+# Verify TypeScript config
+pnpm typecheck
+```

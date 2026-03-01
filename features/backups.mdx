@@ -1,0 +1,482 @@
+---
+title: Backups
+description: Automated server backups with compression, restore, locking, and download capabilities
+---
+
+## Overview
+
+StellarStack provides a robust backup system to protect your game server data. Create manual backups, schedule automated backups, lock critical backups from deletion, and restore servers to previous states.
+
+<CardGroup cols={2}>
+  <Card title="Manual & Automated" icon="clock">
+    Create backups on-demand or schedule automatic backups
+  </Card>
+  <Card title="Compressed Archives" icon="file-zipper">
+    Backups are compressed to save storage space
+  </Card>
+  <Card title="Lock Protection" icon="lock">
+    Lock important backups to prevent accidental deletion
+  </Card>
+  <Card title="Download & Restore" icon="download">
+    Download backups locally or restore servers with one click
+  </Card>
+</CardGroup>
+
+## Backup Limits
+
+Each server has a configurable backup limit:
+
+- **Limit**: Maximum number of COMPLETED backups allowed (e.g., 3, 5, unlimited)
+- **Admin Configurable**: Set per-server in admin panel
+- **Zero Limit**: Backups are disabled
+
+When limit is reached:
+- Cannot create new backups
+- Must delete existing backups first
+- In-progress backups don't count toward limit
+
+<Info>
+  Backups are stored on the daemon node's disk. Plan storage capacity accordingly based on server sizes and backup limits.
+</Info>
+
+## Creating Backups
+
+Create a manual backup:
+
+1. Navigate to **Server** → **Backups**
+2. Click **Create Backup**
+3. Optionally provide a name (e.g., "Pre-Update Backup")
+4. Click **Create Backup**
+
+The system:
+- Creates a compressed archive of `/home/container`
+- Shows progress in real-time
+- Displays backup in the list when complete
+
+**Required Permission**: `backups.create`
+
+### Backup Naming
+
+If no name is provided, backups are auto-named:
+```
+Backup 3/1/2026
+```
+
+Custom names help identify important backups:
+- "Before Plugin Update"
+- "Working Configuration"
+- "Pre-Migration"
+
+## Backup Status
+
+Backups progress through several states:
+
+<Tabs>
+  <Tab title="IN_PROGRESS">
+    <div className="flex items-center gap-2 mb-2">
+      <Spinner className="h-4 w-4" />
+      <span className="text-blue-400 font-medium">Creating backup...</span>
+    </div>
+    
+    - Archive is being created
+    - File system is being scanned
+    - Compression in progress
+    - Cannot download or restore yet
+  </Tab>
+  
+  <Tab title="COMPLETED">
+    <div className="flex items-center gap-2 mb-2">
+      <CheckIcon className="h-4 w-4 text-green-400" />
+      <span className="text-green-400 font-medium">Ready</span>
+    </div>
+    
+    - Backup is ready to use
+    - Can be downloaded
+    - Can be restored
+    - Can be locked or deleted
+    - Counts toward backup limit
+  </Tab>
+  
+  <Tab title="FAILED">
+    <div className="flex items-center gap-2 mb-2">
+      <XIcon className="h-4 w-4 text-red-400" />
+      <span className="text-red-400 font-medium">Failed</span>
+    </div>
+    
+    - Backup creation failed
+    - Usually due to disk space
+    - Does not count toward limit
+    - Can be deleted
+  </Tab>
+  
+  <Tab title="RESTORING">
+    <div className="flex items-center gap-2 mb-2">
+      <Spinner className="h-4 w-4" />
+      <span className="text-purple-400 font-medium">Restoring...</span>
+    </div>
+    
+    - Backup is being restored
+    - Server files being replaced
+    - Server is offline during restore
+    - Cannot perform other actions
+  </Tab>
+</Tabs>
+
+## Backup Actions
+
+Each completed backup supports multiple actions:
+
+### Lock/Unlock
+
+Protect critical backups from accidental deletion:
+
+- **Lock**: Click the lock icon on an unlocked backup
+- **Locked**: Backup shows a yellow "LOCKED" badge and cannot be deleted
+- **Unlock**: Click the unlock icon to allow deletion
+
+**Required Permission**: `backups.create` (same permission for lock/unlock)
+
+<Tip>
+  Lock backups before major updates or configuration changes. This ensures you have a safe restore point.
+</Tip>
+
+### Download
+
+Download a backup to your local machine:
+
+1. Click **Download** icon on a completed backup
+2. System generates a temporary signed download URL
+3. Browser opens download in new tab
+4. URL expires after 5 minutes for security
+
+**Required Permission**: `backups.download`
+
+**Use Cases**:
+- Local backup storage
+- Migration to another host
+- Archive important configurations
+- Transfer to development environment
+
+### Restore
+
+Restore a server to a previous backup state:
+
+1. Click **Restore** icon on a completed backup
+2. Confirm the destructive action
+3. Server transitions to `RESTORING` state
+4. Current files are replaced with backup contents
+5. Server returns to previous state
+
+**Required Permission**: `backups.restore`
+
+<Warning>
+  Restoration is **destructive**. All current server files will be replaced with backup contents. This cannot be undone unless you have another backup.
+</Warning>
+
+**Restoration Process**:
+1. Server is stopped if running
+2. Current `/home/container` is deleted
+3. Backup archive is extracted to `/home/container`
+4. Server status set to `STOPPED`
+5. You can start server after restoration completes
+
+### Delete
+
+Remove a backup to free space:
+
+1. Click **Delete** icon on an unlocked backup
+2. Confirm deletion
+3. Backup is removed from daemon storage
+
+**Required Permission**: `backups.delete`
+
+**Restrictions**:
+- Cannot delete locked backups (unlock first)
+- Cannot delete in-progress or restoring backups
+
+## Backup Information
+
+Each backup displays:
+
+### Metadata
+- **Name**: User-provided or auto-generated name
+- **Created**: Timestamp when backup was created
+- **Size**: Compressed archive size (B, KB, MB, GB)
+- **Status**: Current state (completed, in-progress, failed)
+- **Locked**: Whether backup is protected from deletion
+
+### Size Calculation
+
+Backup sizes depend on:
+- Server file count and total size
+- Compression ratio (varies by file types)
+- World/map complexity (for games)
+
+**Example Sizes**:
+- Small Minecraft server: 50-200 MB
+- Large modded server: 500 MB - 2 GB
+- Rust server with large map: 1-5 GB
+
+## Permissions
+
+Backup management requires these permission nodes:
+
+| Permission | Description |
+|------------|-------------|
+| `backups.read` | View list of backups |
+| `backups.create` | Create new backups and lock/unlock |
+| `backups.delete` | Delete unlocked backups |
+| `backups.restore` | Restore server from backup |
+| `backups.download` | Download backup files |
+
+### Permission Examples
+
+**View Only**:
+```json
+["backups.read"]
+```
+User can see backups but cannot create, delete, or restore.
+
+**Create & Download**:
+```json
+["backups.read", "backups.create", "backups.download"]
+```
+User can create backups and download them but cannot restore or delete.
+
+**Full Backup Access**:
+```json
+["backups.*"]
+```
+Wildcard grants all backup permissions.
+
+## Backup Workflow
+
+### Pre-Update Workflow
+
+<Steps>
+  <Step title="Create Backup">
+    Before updating game version or installing mods:
+    ```
+    Backup Name: "Before 1.20.4 Update"
+    ```
+  </Step>
+  
+  <Step title="Lock Backup">
+    Click lock icon to protect backup from accidental deletion
+  </Step>
+  
+  <Step title="Perform Update">
+    Update game version, install mods, change configuration
+  </Step>
+  
+  <Step title="Test Changes">
+    Start server and verify everything works correctly
+  </Step>
+  
+  <Step title="Restore if Needed">
+    If update breaks server, restore the locked backup
+  </Step>
+</Steps>
+
+### Regular Backup Schedule
+
+Establish a backup routine:
+
+1. **Daily Backups**: Create backup before significant play sessions
+2. **Pre-Event Backups**: Before large events or tournaments
+3. **Configuration Backups**: After successful configuration changes
+4. **Migration Backups**: Before hardware or location changes
+
+<Info>
+  Future StellarStack versions will support automated scheduled backups (e.g., daily at 3 AM). Currently, backups are manual only.
+</Info>
+
+## Storage Considerations
+
+### Daemon Storage
+
+Backups are stored on the daemon node's filesystem:
+
+```
+/var/lib/stellarstack/backups/{server_id}/
+  backup-{id}.tar.gz
+```
+
+**Planning**:
+- Each server with 3 backup limit needs ~3x server size
+- Example: 1 GB server × 3 backups = 3 GB backup storage
+- 10 servers × 3 GB = 30 GB total backup storage needed
+
+### Cleanup Strategies
+
+**Manual Cleanup**:
+- Delete old backups when limit is reached
+- Prioritize keeping:
+  - Locked backups
+  - Recent backups
+  - Pre-update backups
+
+**Rotation**:
+- Keep last 3 backups
+- Delete oldest when creating new backup
+- Lock critical snapshots to exclude from rotation
+
+## Troubleshooting
+
+### Backup Creation Fails
+
+**Symptoms**:
+- Backup stuck in `IN_PROGRESS`
+- Backup transitions to `FAILED`
+- Error in daemon logs
+
+**Causes & Solutions**:
+
+1. **Insufficient Disk Space**
+   - Check daemon node disk usage
+   - Free up space or expand storage
+   - Delete old backups
+
+2. **Permission Issues**
+   - Daemon cannot read server files
+   - Check Docker volume permissions
+   - Review daemon logs for details
+
+3. **Large File Count**
+   - Servers with millions of files (e.g., databases)
+   - Backup takes very long (appears stuck)
+   - Wait for completion or exclude large directories
+
+### Cannot Download Backup
+
+**Symptoms**:
+- Download link returns 404 or 401
+- Download fails immediately
+
+**Causes & Solutions**:
+
+1. **Token Expired**
+   - Download tokens expire after 5 minutes
+   - Generate new download link
+   - Download immediately after clicking
+
+2. **Missing Permission**
+   - User lacks `backups.download` permission
+   - Grant permission or contact admin
+
+3. **Node Offline**
+   - Daemon node is unreachable
+   - Wait for node to come online
+   - Check node status in admin panel
+
+### Restore Stuck
+
+**Symptoms**:
+- Server stuck in `RESTORING` state
+- Restore taking very long
+
+**Causes & Solutions**:
+
+1. **Large Backup Size**
+   - Extracting multi-GB backups takes time
+   - Monitor daemon logs for progress
+   - Wait for extraction to complete
+
+2. **Daemon Issue**
+   - Daemon crashed during restore
+   - Restart daemon service
+   - Check daemon logs for errors
+   - May need to manually set server status to `STOPPED`
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Backup Before Major Changes">
+    Always create a backup before:
+    - Game version updates
+    - Plugin/mod installations
+    - Configuration file edits
+    - Map/world regeneration
+    
+    This provides an instant rollback point.
+  </Accordion>
+  
+  <Accordion title="Use Descriptive Names">
+    Name backups clearly:
+    - ✅ "Pre-1.20.4-Update (Working)"
+    - ✅ "After Event Setup"
+    - ❌ "Backup 1"
+    - ❌ "Test"
+    
+    Future you will thank you.
+  </Accordion>
+  
+  <Accordion title="Lock Critical Backups">
+    Lock backups you'll need later:
+    - Working configurations
+    - Pre-major-update states
+    - Event-ready setups
+    
+    Prevents accidental deletion when creating new backups.
+  </Accordion>
+  
+  <Accordion title="Download Important Backups">
+    Store critical backups off-server:
+    - Download to local machine
+    - Upload to cloud storage (Google Drive, Dropbox)
+    - Protects against node failure or data loss
+  </Accordion>
+  
+  <Accordion title="Monitor Backup Storage">
+    Track daemon disk usage:
+    - Backups consume significant space
+    - Delete old backups regularly
+    - Increase backup limits cautiously
+  </Accordion>
+</AccordionGroup>
+
+## API Integration
+
+Developers can integrate backups into custom workflows:
+
+### List Backups
+```http
+GET /api/servers/{serverId}/backups
+```
+
+### Create Backup
+```http
+POST /api/servers/{serverId}/backups
+Content-Type: application/json
+
+{
+  "name": "Automated Backup"
+}
+```
+
+### Restore Backup
+```http
+POST /api/servers/{serverId}/backups/{backupId}/restore
+```
+
+### Generate Download URL
+```http
+GET /api/servers/{serverId}/backups/{backupId}/download
+```
+
+Returns:
+```json
+{
+  "downloadUrl": "/api/download/backups?token=..."
+}
+```
+
+### Lock/Unlock Backup
+```http
+PATCH /api/servers/{serverId}/backups/{backupId}
+Content-Type: application/json
+
+{
+  "locked": true
+}
+```

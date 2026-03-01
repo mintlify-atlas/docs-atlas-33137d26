@@ -1,0 +1,546 @@
+---
+title: File Manager
+description: Web-based file management with editing, upload/download, drag-and-drop, and SFTP access
+---
+
+## Overview
+
+The built-in file manager provides complete access to your game server files through a modern web interface. Edit configuration files, upload mods, manage worlds, and organize directories—all without leaving your browser.
+
+<CardGroup cols={2}>
+  <Card title="Web-Based Editing" icon="code">
+    Edit text files directly in the browser with syntax highlighting
+  </Card>
+  <Card title="Drag & Drop Upload" icon="upload">
+    Drag files from your desktop to upload instantly
+  </Card>
+  <Card title="SFTP Access" icon="terminal">
+    Connect with FileZilla, WinSCP, or command-line SFTP
+  </Card>
+  <Card title="Archive Support" icon="file-zipper">
+    Create and extract compressed archives (.tar.gz, .zip)
+  </Card>
+</CardGroup>
+
+## File Manager Interface
+
+### Navigation
+
+The file manager displays your server's `/home/container` directory:
+
+**Breadcrumb Navigation**:
+```
+/ home → plugins → WorldEdit
+```
+
+Click any segment to jump to that directory.
+
+**Folder View**: Visual folder cards show:
+- Folder name
+- Folder icon
+- Click to navigate inside
+
+**File Table**: Lists all files with:
+- **Name**: File or folder name with icon
+- **Size**: File size (folders show "--")
+- **Modified**: Last modification timestamp
+- **Actions**: Rename, delete, download, edit
+
+### Storage Usage
+
+Top bar shows disk consumption:
+```
+2.47 GB / 10.0 GB
+[████████████░░░░░░░░] 24.7%
+```
+
+**Color Coding**:
+- 🟢 Green: Less than 70% used
+- 🟡 Yellow: 70-90% used
+- 🔴 Red: Greater than 90% used
+
+### Toolbar Actions
+
+<Tabs>
+  <Tab title="Back">
+    Navigate to parent directory
+    
+    **Shortcut**: Click breadcrumb segment
+  </Tab>
+  
+  <Tab title="New Folder">
+    Create a new directory
+    
+    **Permission**: `files.create`
+  </Tab>
+  
+  <Tab title="New File">
+    Create an empty file
+    
+    **Permission**: `files.create`
+    
+    If the file extension is editable (`.yml`, `.json`, `.txt`, etc.), you'll be redirected to the editor immediately.
+  </Tab>
+  
+  <Tab title="Upload">
+    Open upload modal to select files
+    
+    **Permission**: `files.write` (text), `files.create` (binary)
+    
+    Supports:
+    - Text files (uploaded via API)
+    - Binary files (multipart upload)
+    - Multiple files simultaneously
+  </Tab>
+  
+  <Tab title="Show/Hide Hidden">
+    Toggle visibility of files starting with `.` (e.g., `.gitignore`)
+    
+    Preference saved to localStorage.
+  </Tab>
+  
+  <Tab title="Delete Selected">
+    Bulk delete multiple files
+    
+    **Permission**: `files.delete`
+    
+    Select files with checkboxes, then click **Delete**.
+  </Tab>
+</Tabs>
+
+## File Operations
+
+### Creating Files
+
+<Steps>
+  <Step title="Click New File">
+    Toolbar → **New File**
+  </Step>
+  
+  <Step title="Enter Name">
+    Type filename: `server.properties`
+  </Step>
+  
+  <Step title="Create">
+    File is created with empty content
+  </Step>
+  
+  <Step title="Edit (Optional)">
+    If editable extension, redirected to editor
+  </Step>
+</Steps>
+
+**Editable Extensions**:
+- `.yml`, `.yaml` - YAML configuration
+- `.json` - JSON data
+- `.txt` - Text files
+- `.properties` - Java properties
+- `.conf`, `.cfg`, `.ini` - Config files
+- `.log` - Log files
+- `.md` - Markdown
+- `.sh`, `.bat` - Shell scripts
+- `.toml` - TOML configuration
+
+### Creating Folders
+
+1. Click **New Folder**
+2. Enter name: `plugins`
+3. Folder appears in list
+4. Click to navigate inside
+
+**Permission**: `files.create`
+
+### Uploading Files
+
+#### Method 1: Upload Button
+
+1. Click **Upload** in toolbar
+2. Click **Select Files** or drag files into modal
+3. Select one or more files
+4. Click **Upload**
+5. Progress shown in upload indicator
+
+#### Method 2: Drag & Drop
+
+Drag files from desktop directly onto the file manager:
+
+1. Open file explorer on your computer
+2. Drag files over the file manager
+3. Drop anywhere (except modals)
+4. Files upload automatically
+
+**Upload Handling**:
+- **Text files** (less than 1 MB): Read as text and uploaded via API
+- **Binary files** (images, archives, executables): Multipart upload
+- **Multiple files**: Uploaded sequentially with progress tracking
+
+**Permissions**:
+- `files.write` - Required for text file upload
+- `files.create` - Required for binary file upload
+
+<Info>
+  Upload limits are configured per node (default: 100 MB). Larger files must be uploaded via SFTP.
+</Info>
+
+### Editing Files
+
+Edit supported file types in the browser:
+
+1. Click on a file name (if editable) OR
+2. Click **Actions** → **Edit**
+3. Opens dedicated editor page
+4. Edit content with syntax highlighting
+5. Click **Save** to persist changes
+
+**Editor Features**:
+- Syntax highlighting for common formats
+- Line numbers
+- Auto-indent
+- Find/replace
+- Keyboard shortcuts (Ctrl+S to save)
+
+**Permission**: `files.write`
+
+<Note>
+  Files on the deny list (configured in blueprint) cannot be edited. This protects critical game files like `server.jar`.
+</Note>
+
+### Downloading Files
+
+1. Click **Actions** → **Download**
+2. System generates temporary signed download URL
+3. Browser opens download in new tab
+4. URL expires after 5 minutes
+
+**Permission**: `files.read`
+
+### Renaming Files
+
+1. Click **Actions** → **Rename**
+2. Enter new name
+3. Click **Rename**
+4. File is renamed in place
+
+**Permission**: `files.write`
+
+<Warning>
+  Renaming critical files (e.g., `server.jar` → `old.jar`) may break your server. Proceed with caution.
+</Warning>
+
+### Deleting Files
+
+#### Single File
+
+1. Click **Actions** → **Delete**
+2. Confirm deletion
+3. File is permanently removed
+
+#### Multiple Files
+
+1. Check boxes next to files to delete
+2. Click **Delete** in toolbar
+3. Confirm bulk deletion
+4. All selected files removed
+
+**Permission**: `files.delete`
+
+<Warning>
+  File deletion is **permanent**. There is no recycle bin. Create a backup before deleting important files.
+</Warning>
+
+### File Permissions (chmod)
+
+Change Unix file permissions:
+
+1. Click **Actions** → **Permissions**
+2. Set read/write/execute for:
+   - Owner
+   - Group
+   - Others
+3. Click **Update**
+4. Permissions applied (e.g., `644`, `755`)
+
+**Permission**: `files.write`
+
+**Common Modes**:
+- `644` - Files (owner read/write, others read)
+- `755` - Folders and executables (owner read/write/execute, others read/execute)
+- `600` - Private files (owner only)
+
+### Archiving Files
+
+Create compressed archives:
+
+1. Select files to archive (checkboxes)
+2. Click **Archive** (future feature)
+3. Choose format (.tar.gz, .zip)
+4. Archive is created
+
+**Extraction**:
+1. Upload archive file
+2. Click **Actions** → **Extract**
+3. Files extracted to current directory
+
+**Permission**: `files.archive`
+
+<Note>
+  Archive features are planned but not yet implemented in current version.
+</Note>
+
+## SFTP Access
+
+Connect to your server files via SFTP for advanced file management:
+
+### Connection Details
+
+Navigate to **Server** → **Network** to view SFTP credentials:
+
+| Field | Value |
+|-------|-------|
+| Host | Node hostname (e.g., `node1.example.com`) |
+| Port | SFTP port (default: `2022`) |
+| Username | `{server_id}.{your_email}` |
+| Password | Your panel account password |
+
+**Example**:
+```
+Host: node1.stellarstack.app
+Port: 2022
+Username: abc123-def456-ghi789.user@example.com
+Password: your_panel_password
+```
+
+**Permission**: `files.sftp`
+
+### Using FileZilla
+
+<Steps>
+  <Step title="Open FileZilla">
+    Download from [filezilla-project.org](https://filezilla-project.org/)
+  </Step>
+  
+  <Step title="Enter Connection Details">
+    - Protocol: SFTP
+    - Host: `node1.stellarstack.app`
+    - Port: `2022`
+    - Username: `{server_id}.{email}`
+    - Password: Your panel password
+  </Step>
+  
+  <Step title="Connect">
+    Click **Quickconnect** or save as a site
+  </Step>
+  
+  <Step title="Navigate">
+    You'll be automatically placed in `/home/container`
+  </Step>
+</Steps>
+
+### Command-Line SFTP
+
+```bash
+sftp -P 2022 abc123-def456.user@example.com@node1.stellarstack.app
+```
+
+Common commands:
+```bash
+ls                     # List files
+cd plugins             # Change directory
+get server.properties  # Download file
+put config.yml         # Upload file
+mkdir backups          # Create directory
+rm old.log             # Delete file
+```
+
+### WinSCP (Windows)
+
+1. Download [WinSCP](https://winscp.net/)
+2. Create new session:
+   - File protocol: SFTP
+   - Host name: `node1.stellarstack.app`
+   - Port: `2022`
+   - Username: `{server_id}.{email}`
+   - Password: Your panel password
+3. Click **Login**
+4. Browse and manage files
+
+## Permissions
+
+File management requires these permission nodes:
+
+| Permission | Description |
+|------------|-------------|
+| `files.read` | View and download files |
+| `files.write` | Edit existing files |
+| `files.create` | Create new files and folders |
+| `files.delete` | Delete files and folders |
+| `files.archive` | Create and extract archives |
+| `files.sftp` | Connect via SFTP |
+
+### Permission Examples
+
+**Read-Only Access**:
+```json
+["files.read"]
+```
+User can browse and download files but cannot modify.
+
+**Editor Access**:
+```json
+["files.read", "files.write"]
+```
+User can view and edit files but not create or delete.
+
+**Full File Access**:
+```json
+["files.*"]
+```
+Wildcard grants all file permissions including SFTP.
+
+## File Polling
+
+The file manager auto-refreshes every 3 seconds to detect:
+- Files uploaded via SFTP
+- Changes made by game server (new logs, worlds)
+- Modifications from other users
+
+This keeps the view synchronized with the actual filesystem.
+
+## Hidden Files
+
+Files starting with `.` are hidden by default:
+- `.gitignore`
+- `.env`
+- `.minecraft`
+
+Click **Show Hidden** to reveal these files.
+
+**Toggle State**: Saved to browser localStorage per user.
+
+## Blueprint File Denylist
+
+Blueprints can restrict file access:
+
+```json
+{
+  "fileDenylist": [
+    "server.jar",
+    ".git/*",
+    "*.exe"
+  ]
+}
+```
+
+Denylisted files:
+- Cannot be deleted
+- Cannot be renamed
+- Cannot be edited
+- Can still be downloaded (read-only)
+
+This protects critical game binaries and system files.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Backup Before Editing">
+    Before editing configuration files:
+    1. Create a server backup
+    2. Or download the file locally first
+    3. Edit in file manager
+    4. Test changes
+    5. Restore if needed
+  </Accordion>
+  
+  <Accordion title="Use SFTP for Large Files">
+    For files greater than 100 MB:
+    - Web upload may time out
+    - Use SFTP client for reliable transfer
+    - Supports resume on disconnection
+  </Accordion>
+  
+  <Accordion title="Organize with Folders">
+    Keep files organized:
+    - `plugins/` - Plugin JAR files
+    - `configs/` - Configuration files
+    - `backups/` - Manual local backups
+    - `worlds/` - Game worlds/maps
+  </Accordion>
+  
+  <Accordion title="Monitor Disk Usage">
+    Watch the disk usage bar:
+    - Delete old logs regularly
+    - Remove unused plugins/mods
+    - Clean up old world backups
+    - Request disk increase if needed
+  </Accordion>
+  
+  <Accordion title="Use Descriptive Names">
+    Name files clearly:
+    - ✅ `server.properties.backup-2026-03-01`
+    - ✅ `config-working.yml`
+    - ❌ `config2.yml`
+    - ❌ `test.txt`
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Cannot Edit File
+
+**Symptoms**: Edit button is grayed out or missing
+
+**Causes**:
+1. File extension not editable (only `.yml`, `.json`, etc. supported)
+2. File on blueprint denylist
+3. Missing `files.write` permission
+4. File is a binary format
+
+**Solution**: Download file and edit locally, then re-upload.
+
+### Upload Fails
+
+**Symptoms**: Upload stuck or shows error
+
+**Causes**:
+1. **File too large**: Exceeds node upload limit (default 100 MB)
+2. **Disk full**: Server reached disk quota
+3. **Permission denied**: Missing `files.create` or `files.write`
+4. **Network timeout**: Poor connection
+
+**Solutions**:
+- Use SFTP for large files
+- Delete old files to free space
+- Check permissions
+- Retry upload
+
+### SFTP Connection Refused
+
+**Symptoms**: Cannot connect via SFTP client
+
+**Causes**:
+1. **Wrong port**: SFTP port is not 22 (usually 2022)
+2. **Wrong username format**: Must be `{server_id}.{email}`
+3. **Wrong password**: Use panel account password, not server password
+4. **Missing permission**: Lack `files.sftp` permission
+5. **Node offline**: Daemon is not running
+6. **Firewall**: SFTP port is blocked
+
+**Solutions**:
+- Verify connection details from Network page
+- Use format: `server-uuid.your@email.com`
+- Confirm node is online
+- Check firewall allows port 2022
+
+### Files Not Showing
+
+**Symptoms**: Uploaded files don't appear in file manager
+
+**Causes**:
+1. **Hidden files**: Files start with `.` and hidden files are off
+2. **Wrong directory**: Uploaded to different folder
+3. **Polling delay**: Wait 3 seconds for auto-refresh
+
+**Solutions**:
+- Enable "Show Hidden Files"
+- Navigate to correct directory
+- Manually refresh page

@@ -1,0 +1,488 @@
+---
+title: Blueprints
+description: Pre-configured templates for rapid game server deployment with variables, Docker images, and installation scripts
+---
+
+## Overview
+
+Blueprints are reusable templates that define how game servers are installed, configured, and started. They encapsulate everything needed to deploy a specific game type (Minecraft, Rust, Valheim, etc.) without manual configuration.
+
+<CardGroup cols={2}>
+  <Card title="Pterodactyl Compatible" icon="egg">
+    Import and export Pterodactyl egg format for ecosystem compatibility
+  </Card>
+  <Card title="Docker-Based" icon="docker">
+    Each blueprint specifies Docker images with version options
+  </Card>
+  <Card title="Variable System" icon="sliders">
+    Customizable environment variables with validation rules
+  </Card>
+  <Card title="Installation Scripts" icon="terminal">
+    Automated installation with bash scripts and progress tracking
+  </Card>
+</CardGroup>
+
+## Blueprint Structure
+
+Each blueprint contains:
+
+### Metadata
+- **Name**: Display name (e.g., "Vanilla Minecraft")
+- **Description**: What the server does
+- **Author**: Blueprint creator
+- **Category**: Game type (e.g., "minecraft", "rust", "survival")
+- **Version**: Pterodactyl metadata version (PTDL_v2)
+- **Features**: Supported features (e.g., `["steam_disk_space"]`)
+
+### Docker Configuration
+
+Blueprints can specify multiple Docker images:
+
+```json
+{
+  "dockerImages": {
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
+    "Java 17": "ghcr.io/pterodactyl/yolks:java_17",
+    "Java 11": "ghcr.io/pterodactyl/yolks:java_11"
+  }
+}
+```
+
+Users select which image to use when creating a server.
+
+### Startup Configuration
+
+**Startup Command**: Command to launch the game server with variable substitution:
+
+```bash
+java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar nogui
+```
+
+**Stop Command**: How to gracefully stop the server:
+- `stop` - Send "stop" command to console (Minecraft)
+- `SIGTERM` - Send SIGTERM signal (most games)
+- Custom commands for specific games
+
+**Startup Detection**: Patterns to detect when server is fully started:
+
+```json
+{
+  "done": [
+    "Done (",
+    "Listening on"
+  ]
+}
+```
+
+When daemon sees these patterns in console output, server transitions from `STARTING` to `RUNNING`.
+
+### Variables
+
+Environment variables users can customize:
+
+```json
+{
+  "name": "Server Version",
+  "description": "Minecraft server version to install",
+  "env_variable": "MINECRAFT_VERSION",
+  "default_value": "latest",
+  "user_viewable": true,
+  "user_editable": true,
+  "rules": "required|string",
+  "field_type": "text"
+}
+```
+
+**Field Types**:
+- `text` - Single-line input
+- `textarea` - Multi-line input
+- `boolean` - Toggle switch
+- `integer` - Numeric input
+
+**Rules**: Validation (required, string, integer, min, max, regex)
+
+### Installation Script
+
+Bash script to install/setup the game server:
+
+```bash
+#!/bin/bash
+# Installation script for Vanilla Minecraft
+
+cd /mnt/server
+
+# Download server jar
+wget -O server.jar https://launcher.mojang.com/v1/objects/.../server.jar
+
+# Accept EULA
+echo "eula=true" > eula.txt
+
+# Generate server.properties
+echo "server-port=${SERVER_PORT}" > server.properties
+echo "max-players=20" >> server.properties
+```
+
+**Installation Container**: Separate Docker container for installation:
+
+```json
+{
+  "installation": {
+    "script": "#!/bin/bash\n...",
+    "container": "ghcr.io/pterodactyl/installers:alpine",
+    "entrypoint": "bash"
+  }
+}
+```
+
+### File Denylist
+
+Files that cannot be modified or deleted via the file manager:
+
+```json
+{
+  "fileDenylist": [
+    "server.jar",
+    ".git/*",
+    "*.exe"
+  ]
+}
+```
+
+Protects critical game files from accidental deletion.
+
+## Creating Blueprints
+
+Administrators can create blueprints from **Admin** → **Blueprints** → **Add Blueprint**.
+
+<Steps>
+  <Step title="Basic Information">
+    - Name: "Vanilla Minecraft 1.20"
+    - Category: "minecraft"
+    - Description: "Official Minecraft server"
+    - Author: "Mojang"
+  </Step>
+  
+  <Step title="Docker Images">
+    Add one or more Docker images:
+    - Java 21: `ghcr.io/pterodactyl/yolks:java_21`
+    - Java 17: `ghcr.io/pterodactyl/yolks:java_17`
+  </Step>
+  
+  <Step title="Startup Configuration">
+    - **Startup**: `java -Xmx{{SERVER_MEMORY}}M -jar server.jar`
+    - **Stop**: `stop`
+    - **Detection Patterns**: `["Done (", "For help"]`
+  </Step>
+  
+  <Step title="Variables">
+    Define customizable variables:
+    - SERVER_PORT (auto-filled from allocation)
+    - MINECRAFT_VERSION (user selects version)
+    - MAX_PLAYERS (configurable player limit)
+  </Step>
+  
+  <Step title="Installation Script">
+    Write bash script to download and configure the game server.
+    
+    Variables available:
+    - `${MINECRAFT_VERSION}`
+    - `${SERVER_PORT}`
+    - `/mnt/server` (server file directory)
+  </Step>
+  
+  <Step title="Optional Configuration">
+    - File denylist patterns
+    - Features array
+    - Update URL for version checking
+  </Step>
+</Steps>
+
+## Importing Pterodactyl Eggs
+
+StellarStack natively supports Pterodactyl egg format:
+
+1. Navigate to **Admin** → **Blueprints**
+2. Click **Import Egg**
+3. Paste Pterodactyl egg JSON
+4. Click **Import**
+
+The system automatically:
+- Parses egg structure
+- Cleans Docker image escape sequences (`\/` → `/`)
+- Converts variables to StellarStack format
+- Creates a new blueprint
+
+<Info>
+  You can import eggs from the [Pterodactyl Eggs repository](https://github.com/parkervcp/eggs) for instant game support.
+</Info>
+
+### Export as Pterodactyl Egg
+
+Export blueprints back to Pterodactyl format:
+
+1. Open blueprint details
+2. Click **Export as Egg**
+3. Download JSON file
+4. Import into Pterodactyl panel
+
+This enables:
+- Blueprint sharing between StellarStack instances
+- Migration from/to Pterodactyl
+- Version control of blueprint configurations
+
+## Using Blueprints
+
+When creating a server, users:
+
+1. **Select Blueprint**: Choose from available templates
+2. **Choose Docker Image**: Pick from blueprint's image options
+3. **Configure Variables**: Set environment variables (version, port, etc.)
+4. **Allocate Resources**: Define CPU, RAM, disk limits
+5. **Deploy**: Panel creates server using blueprint configuration
+
+### Variable Substitution
+
+The panel replaces variable placeholders in the startup command:
+
+**Blueprint Startup**:
+```bash
+java -Xmx{{SERVER_MEMORY}}M -Xms128M -jar {{SERVER_JAR}}
+```
+
+**After Substitution** (with 2048 MB RAM):
+```bash
+java -Xmx2048M -Xms128M -jar server.jar
+```
+
+Special variables:
+- `{{SERVER_MEMORY}}` - Allocated memory in MB
+- `{{SERVER_PORT}}` - Primary allocation port
+- Custom variables from blueprint definition
+
+## Blueprint Categories
+
+Organize blueprints by game type:
+
+- **minecraft** - Minecraft variants (Vanilla, Paper, Forge, Fabric)
+- **rust** - Rust game servers
+- **source** - Source engine games (CS:GO, TF2, Garry's Mod)
+- **voice** - Voice servers (TeamSpeak, Mumble)
+- **other** - Miscellaneous game types
+
+Categories help users find the right template quickly.
+
+## Startup Detection
+
+Blueprints define patterns to detect when a server is ready:
+
+### Pattern Matching
+
+The daemon monitors console output for these patterns:
+
+**Minecraft Example**:
+```json
+{
+  "done": [
+    "Done (",
+    "For help, type"
+  ]
+}
+```
+
+When either pattern appears, server is marked `RUNNING`.
+
+**Rust Example**:
+```json
+{
+  "done": [
+    "Server startup complete"
+  ]
+}
+```
+
+### No Detection Patterns
+
+If a blueprint has no startup patterns:
+- Server immediately transitions to `RUNNING` when container starts
+- No waiting for specific console output
+- Useful for simple services or testing
+
+<Warning>
+  Blueprints without startup detection may show as RUNNING before the game is actually ready to accept connections.
+</Warning>
+
+## Advanced Features
+
+### User Interaction Patterns
+
+Detect when server requires user input:
+
+```json
+{
+  "user_interaction": [
+    "Do you agree to the EULA?",
+    "[Y/n]"
+  ]
+}
+```
+
+Panel can:
+- Alert administrators
+- Auto-respond via console
+- Pause installation until manual intervention
+
+### ANSI Stripping
+
+Remove color codes from console output:
+
+```json
+{
+  "strip_ansi": true
+}
+```
+
+Cleans terminal escape sequences for cleaner logs.
+
+### File Configuration
+
+Automatically edit configuration files:
+
+```json
+{
+  "files": {
+    "server.properties": {
+      "parser": "properties",
+      "find": {
+        "server-port": "{{SERVER_PORT}}",
+        "max-players": "{{MAX_PLAYERS}}"
+      }
+    }
+  }
+}
+```
+
+Daemon automatically updates files with variable values.
+
+## Public vs Private Blueprints
+
+- **Public**: Visible to all users, available for server creation
+- **Private**: Only admins can see and use
+
+Use private blueprints for:
+- Testing new configurations
+- Custom/proprietary game servers
+- Templates not ready for general use
+
+## Editing Blueprints
+
+Administrators can modify existing blueprints:
+
+1. Navigate to **Admin** → **Blueprints**
+2. Click **Edit** on target blueprint
+3. Modify configuration (variables, Docker images, scripts)
+4. Save changes
+
+<Note>
+  Changes to blueprints do NOT affect existing servers. Only new servers use the updated blueprint.
+</Note>
+
+To apply blueprint changes to existing servers:
+1. Edit the blueprint
+2. Navigate to server → **Settings**
+3. Click **Reinstall Server**
+4. Server re-runs installation with new blueprint
+
+## Deleting Blueprints
+
+Remove unused blueprints:
+
+1. Navigate to **Admin** → **Blueprints**
+2. Click **Delete** on target blueprint
+3. Confirm deletion
+
+**Requirement**: No servers can be using the blueprint
+
+<Warning>
+  Deleting a blueprint in use will fail. Reassign or delete servers first.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Descriptive Names">
+    Name blueprints clearly:
+    - ✅ "Vanilla Minecraft 1.20 (Java 21)"
+    - ❌ "Minecraft"
+    
+    Include version and variant information.
+  </Accordion>
+  
+  <Accordion title="Test Installation Scripts">
+    Before deploying:
+    - Test scripts in a local Docker container
+    - Verify all downloads work
+    - Confirm startup detection patterns trigger
+  </Accordion>
+  
+  <Accordion title="Provide Multiple Docker Images">
+    Offer version choices:
+    - Java 21, Java 17, Java 11 for Minecraft
+    - Different Node.js versions for bots
+    - Gives users flexibility without multiple blueprints
+  </Accordion>
+  
+  <Accordion title="Validate Variables">
+    Use validation rules:
+    - `required|string|min:3` for server names
+    - `required|integer|between:1000,65535` for ports
+    - `required|boolean` for toggles
+    
+    Prevents invalid configurations.
+  </Accordion>
+  
+  <Accordion title="Document Variables">
+    Write clear descriptions:
+    - ✅ "Minecraft version to install (e.g., 1.20.4, latest)"
+    - ❌ "Version"
+    
+    Helps users configure servers correctly.
+  </Accordion>
+</AccordionGroup>
+
+## Example: Vanilla Minecraft Blueprint
+
+```json
+{
+  "name": "Vanilla Minecraft",
+  "description": "Official Minecraft server (Java Edition)",
+  "category": "minecraft",
+  "author": "Mojang",
+  "dockerImages": {
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
+    "Java 17": "ghcr.io/pterodactyl/yolks:java_17"
+  },
+  "startup": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar nogui",
+  "config": {
+    "stop": "stop",
+    "startup": {
+      "done": ["Done (", "For help"]
+    }
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\ncd /mnt/server\nwget -O server.jar https://launcher.mojang.com/v1/objects/.../server.jar\necho 'eula=true' > eula.txt",
+      "container": "ghcr.io/pterodactyl/installers:alpine"
+    }
+  },
+  "variables": [
+    {
+      "name": "Server Version",
+      "env_variable": "MINECRAFT_VERSION",
+      "default_value": "latest",
+      "user_editable": true,
+      "rules": "required|string"
+    }
+  ],
+  "fileDenylist": ["server.jar"]
+}
+```

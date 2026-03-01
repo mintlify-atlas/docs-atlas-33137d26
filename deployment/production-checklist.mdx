@@ -1,0 +1,405 @@
+---
+title: Production Checklist
+description: Complete checklist for production StellarStack deployment
+---
+
+Use this checklist to ensure your StellarStack deployment is production-ready.
+
+## Pre-Deployment
+
+### Infrastructure Requirements
+
+<Steps>
+  <Step title="Server Requirements">
+    - [ ] Ubuntu 20.04+, Debian 11+, or RHEL 8+
+    - [ ] Minimum 2GB RAM (4GB+ recommended)
+    - [ ] 20GB+ available disk space
+    - [ ] 2+ CPU cores
+    - [ ] Root or sudo access
+  </Step>
+
+  <Step title="Domain & DNS">
+    - [ ] Domain name registered
+    - [ ] DNS A records configured:
+      - [ ] Panel domain (e.g., `panel.example.com`)
+      - [ ] API domain (e.g., `api.example.com`)
+      - [ ] Monitoring domain (optional)
+      - [ ] Daemon/node domain (for all-in-one)
+    - [ ] DNS propagated and verified
+    - [ ] All domains point to server IP
+  </Step>
+
+  <Step title="Software Dependencies">
+    - [ ] Docker 20.10+ installed
+    - [ ] Docker Compose v2.0+ installed
+    - [ ] nginx installed and running
+    - [ ] PostgreSQL 15+ (can run in container)
+    - [ ] Certbot installed (for SSL)
+    - [ ] Git installed (for daemon)
+    - [ ] Rust/Cargo installed (for daemon)
+  </Step>
+</Steps>
+
+## Security Configuration
+
+### SSL/TLS Certificates
+
+<Steps>
+  <Step title="Generate Certificates">
+    - [ ] SSL certificates generated for all domains
+    - [ ] Using Let's Encrypt (Certbot) or valid CA certificate
+    - [ ] Certificates properly configured in nginx
+    - [ ] HTTP to HTTPS redirect enabled
+    - [ ] Certificate auto-renewal configured
+  </Step>
+
+  <Step title="Security Headers">
+    Configure in nginx:
+    - [ ] `X-Frame-Options: DENY`
+    - [ ] `X-Content-Type-Options: nosniff`
+    - [ ] `X-XSS-Protection: 1; mode=block`
+    - [ ] `Strict-Transport-Security` (HSTS)
+    - [ ] Content Security Policy (CSP)
+  </Step>
+</Steps>
+
+### Environment Variables
+
+<Steps>
+  <Step title="Required Variables">
+    - [ ] `DATABASE_URL` configured with secure password
+    - [ ] `BETTER_AUTH_SECRET` generated (32+ chars)
+    - [ ] `FRONTEND_URL` set to panel domain
+    - [ ] `API_URL` set to API domain
+    - [ ] `JWT_SECRET` generated (32+ chars)
+    - [ ] `DOWNLOAD_TOKEN_SECRET` generated (32+ chars)
+    - [ ] `ENCRYPTION_KEY` generated (64 hex chars)
+  </Step>
+
+  <Step title="OAuth Configuration (Optional)">
+    - [ ] OAuth provider credentials configured
+    - [ ] Redirect URIs match production domains
+    - [ ] Test OAuth login flow
+  </Step>
+
+  <Step title="File Permissions">
+    - [ ] `.env` file permissions set to 600
+    - [ ] `.env` excluded from version control
+    - [ ] No secrets in logs or error messages
+  </Step>
+</Steps>
+
+### Database Security
+
+<Steps>
+  <Step title="PostgreSQL Hardening">
+    - [ ] Strong database password (not default)
+    - [ ] Database user has minimum required permissions
+    - [ ] PostgreSQL only accessible from localhost (if local)
+    - [ ] Regular backup schedule configured
+    - [ ] Connection pooling configured
+  </Step>
+</Steps>
+
+## Network Configuration
+
+### Firewall Rules
+
+<Steps>
+  <Step title="Configure Firewall">
+    Allow only necessary ports:
+    - [ ] Port 80 (HTTP - redirects to HTTPS)
+    - [ ] Port 443 (HTTPS)
+    - [ ] Port 22 (SSH - restrict to your IP)
+    - [ ] Port 2022 (SFTP - for file transfers)
+    - [ ] Port 8080 (Daemon API - if applicable)
+    - [ ] Block all other incoming ports
+  </Step>
+
+  <Step title="Docker Networks">
+    - [ ] `stellar_network` created for services
+    - [ ] `stellar` created for game servers (172.18.0.0/16)
+    - [ ] Network isolation configured
+  </Step>
+</Steps>
+
+### nginx Configuration
+
+<Steps>
+  <Step title="Reverse Proxy Setup">
+    - [ ] nginx configurations created for all services
+    - [ ] Symlinks in `/etc/nginx/sites-enabled/`
+    - [ ] `client_max_body_size` set (100M default)
+    - [ ] WebSocket support configured
+    - [ ] Proxy headers configured correctly
+    - [ ] nginx syntax validated (`nginx -t`)
+    - [ ] nginx reloaded
+  </Step>
+
+  <Step title="Rate Limiting">
+    Configure nginx rate limiting:
+    - [ ] Limit requests to API endpoints
+    - [ ] Protect against brute force attacks
+    - [ ] Configure reasonable limits for your use case
+  </Step>
+</Steps>
+
+## Deployment
+
+### Docker Containers
+
+<Steps>
+  <Step title="Deploy Services">
+    - [ ] Docker Compose file configured
+    - [ ] Environment variables loaded
+    - [ ] Containers started (`docker-compose up -d`)
+    - [ ] All containers running (`docker-compose ps`)
+    - [ ] Health checks passing
+    - [ ] No errors in logs (`docker-compose logs`)
+  </Step>
+
+  <Step title="Database Setup">
+    - [ ] Database migrations run (`pnpm db:push`)
+    - [ ] Prisma client generated (`pnpm db:generate`)
+    - [ ] Admin user created (`pnpm db:seed`)
+    - [ ] Database connection verified
+  </Step>
+</Steps>
+
+### Service Verification
+
+<Steps>
+  <Step title="Panel Access">
+    - [ ] Panel accessible at `https://panel.example.com`
+    - [ ] No SSL certificate errors
+    - [ ] Login page loads correctly
+    - [ ] Can log in with admin credentials
+    - [ ] Dashboard displays properly
+  </Step>
+
+  <Step title="API Access">
+    - [ ] API accessible at `https://api.example.com`
+    - [ ] Health check endpoint responds
+    - [ ] WebSocket connection successful
+    - [ ] No CORS errors in browser console
+  </Step>
+
+  <Step title="Daemon Connection (if applicable)">
+    - [ ] Daemon service running
+    - [ ] Daemon connected to API
+    - [ ] Node visible in panel
+    - [ ] Can create test server
+    - [ ] Game server containers start successfully
+  </Step>
+</Steps>
+
+## Monitoring & Maintenance
+
+### Logging
+
+<Steps>
+  <Step title="Log Configuration">
+    - [ ] Application logs configured
+    - [ ] nginx access/error logs enabled
+    - [ ] Docker logs accessible (`docker-compose logs`)
+    - [ ] Log rotation configured
+    - [ ] Disk space monitoring for logs
+  </Step>
+
+  <Step title="Monitoring Stack (Optional)">
+    - [ ] Prometheus collecting metrics
+    - [ ] Loki aggregating logs
+    - [ ] Grafana dashboards configured
+    - [ ] Monitoring domain accessible
+    - [ ] Alerts configured for critical issues
+  </Step>
+</Steps>
+
+### Backups
+
+<Steps>
+  <Step title="Backup Strategy">
+    - [ ] Database backup schedule configured
+    - [ ] Automated daily backups
+    - [ ] Backup retention policy defined
+    - [ ] Backups stored off-site or separate volume
+    - [ ] Backup restoration tested
+    - [ ] `.env` file backed up securely
+  </Step>
+</Steps>
+
+### Updates
+
+<Steps>
+  <Step title="Update Procedure">
+    - [ ] Update procedure documented
+    - [ ] Backup before updates
+    - [ ] Test updates in staging environment
+    - [ ] Monitor for new releases
+    - [ ] Security patches applied promptly
+  </Step>
+</Steps>
+
+## Performance Optimization
+
+### Database Optimization
+
+<Steps>
+  <Step title="PostgreSQL Tuning">
+    - [ ] Connection pool size optimized
+    - [ ] Database indexes reviewed
+    - [ ] Query performance monitored
+    - [ ] Vacuum and analyze scheduled
+  </Step>
+</Steps>
+
+### Caching
+
+<Steps>
+  <Step title="Redis Configuration">
+    - [ ] Redis running and accessible
+    - [ ] Redis persistence configured (`appendonly yes`)
+    - [ ] Memory limits set appropriately
+    - [ ] Cache hit rate monitored
+  </Step>
+</Steps>
+
+## Operational Readiness
+
+### Documentation
+
+<Steps>
+  <Step title="Internal Documentation">
+    - [ ] Server credentials documented securely
+    - [ ] Deployment procedure documented
+    - [ ] Rollback procedure documented
+    - [ ] Emergency contacts listed
+    - [ ] Runbook for common issues
+  </Step>
+</Steps>
+
+### Testing
+
+<Steps>
+  <Step title="Functionality Testing">
+    - [ ] User registration works
+    - [ ] Login/logout works
+    - [ ] OAuth providers work (if enabled)
+    - [ ] Server creation works
+    - [ ] Console WebSocket works
+    - [ ] File manager works
+    - [ ] Backups can be created and restored
+    - [ ] Subuser invites work
+    - [ ] Permissions are enforced
+  </Step>
+
+  <Step title="Performance Testing">
+    - [ ] Load testing completed
+    - [ ] Response times acceptable
+    - [ ] WebSocket performance acceptable
+    - [ ] No memory leaks observed
+  </Step>
+</Steps>
+
+## Post-Deployment
+
+### Monitoring
+
+<Steps>
+  <Step title="Active Monitoring">
+    - [ ] Monitor container health
+    - [ ] Watch for errors in logs
+    - [ ] Monitor disk usage
+    - [ ] Monitor CPU and memory usage
+    - [ ] Set up alerting for critical issues
+  </Step>
+</Steps>
+
+### User Onboarding
+
+<Steps>
+  <Step title="First Users">
+    - [ ] Admin account secured (strong password + 2FA)
+    - [ ] Initial users invited
+    - [ ] User documentation provided
+    - [ ] Support channels established
+  </Step>
+</Steps>
+
+## Security Checklist
+
+<Warning>
+  **Critical Security Items** - Do not skip these steps!
+</Warning>
+
+- [ ] All secrets are unique and randomly generated
+- [ ] Default passwords changed
+- [ ] SSL/TLS enabled for all domains
+- [ ] Firewall configured and enabled
+- [ ] SSH key-based authentication only
+- [ ] Regular security updates enabled
+- [ ] `.env` file secured (chmod 600)
+- [ ] Database access restricted
+- [ ] Backups encrypted and secured
+- [ ] Rate limiting enabled
+- [ ] CSRF protection enabled
+- [ ] Security headers configured
+
+## Common Issues
+
+### Database Connection Errors
+
+**Symptoms:** API can't connect to PostgreSQL
+
+**Solutions:**
+- Verify `DATABASE_URL` is correct
+- Check PostgreSQL container is running
+- Verify network connectivity between containers
+- Check PostgreSQL logs for errors
+
+### SSL Certificate Issues
+
+**Symptoms:** Certificate errors in browser
+
+**Solutions:**
+- Verify DNS points to server
+- Regenerate certificates with Certbot
+- Check nginx configuration syntax
+- Verify certificate files exist and are readable
+
+### WebSocket Connection Failures
+
+**Symptoms:** Console not updating, "Connection failed" errors
+
+**Solutions:**
+- Verify nginx WebSocket proxy configuration
+- Check for reverse proxy timeout settings
+- Ensure firewall allows WebSocket connections
+- Verify `API_URL` uses `https://` (not `http://`)
+
+### Container Restarts
+
+**Symptoms:** Containers constantly restarting
+
+**Solutions:**
+- Check logs: `docker-compose logs <service>`
+- Verify environment variables are set
+- Check for port conflicts
+- Verify dependencies are running (database, redis)
+
+## Next Steps
+
+After completing this checklist:
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Review all configuration options
+  </Card>
+  <Card title="Self-Hosting Overview" icon="server" href="/deployment/self-hosting">
+    Learn about deployment options
+  </Card>
+</CardGroup>
+
+<Tip>
+  Keep this checklist handy for future deployments and updates.
+</Tip>

@@ -1,0 +1,243 @@
+---
+title: 'Rate Limits'
+description: 'API rate limiting rules and best practices'
+---
+
+## Overview
+
+The StellarStack API implements rate limiting using a token bucket algorithm to ensure fair usage and protect against abuse. Different endpoints have different rate limits based on their resource intensity and security requirements.
+
+## How Rate Limiting Works
+
+Each request consumes one token from your bucket. Tokens are refilled over time based on the configured window. When your bucket is empty, requests are rejected with a `429 Too Many Requests` status code.
+
+### Rate Limit Headers
+
+All API responses include rate limit information:
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1709308800
+```
+
+<ResponseField name="X-RateLimit-Limit" type="integer">
+  Maximum requests allowed in the current window
+</ResponseField>
+
+<ResponseField name="X-RateLimit-Remaining" type="integer">
+  Requests remaining in the current window
+</ResponseField>
+
+<ResponseField name="X-RateLimit-Reset" type="integer">
+  Unix timestamp (seconds) when the rate limit resets
+</ResponseField>
+
+<ResponseField name="Retry-After" type="integer">
+  Seconds to wait before retrying (only present when rate limited)
+</ResponseField>
+
+## Rate Limit Tiers
+
+### Authentication Endpoints
+
+Strict rate limiting for security-sensitive authentication operations:
+
+<ParamField path="/api/auth/sign-in/*" type="endpoint">
+  **5 requests per minute**
+  
+  Applies to login attempts to prevent brute force attacks.
+</ParamField>
+
+<ParamField path="/api/auth/sign-up/*" type="endpoint">
+  **5 requests per minute**
+  
+  Limits account creation to prevent spam.
+</ParamField>
+
+<ParamField path="/api/auth/forget-password/*" type="endpoint">
+  **5 requests per minute**
+  
+  Protects password reset functionality.
+</ParamField>
+
+#### Rate Limited Response
+
+```json
+{
+  "error": "Too many authentication attempts, please try again in a minute"
+}
+```
+
+### Sensitive Operations
+
+For password resets and email verification:
+
+<ParamField path="Sensitive Operations" type="endpoint">
+  **3 requests per 15 minutes**
+  
+  Maximum rate: 3 requests every 900,000ms (15 minutes)
+</ParamField>
+
+```json
+{
+  "error": "Too many requests for this sensitive operation, please try again later"
+}
+```
+
+### General API Endpoints
+
+Standard rate limit for most API operations:
+
+<ParamField path="/api/*" type="endpoint">
+  **100 requests per minute**
+  
+  Applies to all API endpoints unless a more specific limit is defined.
+</ParamField>
+
+```json
+{
+  "error": "API rate limit exceeded, please slow down"
+}
+```
+
+### Server Actions
+
+Rate limiting for server control operations (start, stop, restart):
+
+<ParamField path="Server Actions" type="endpoint">
+  **10 requests per minute per server**
+  
+  Rate limit is scoped to IP address + server ID combination.
+</ParamField>
+
+```json
+{
+  "error": "Too many server actions, please wait before trying again"
+}
+```
+
+### File Operations
+
+Limits for file upload, download, and management:
+
+<ParamField path="File Operations" type="endpoint">
+  **30 requests per minute**
+  
+  Applies to file system operations on servers.
+</ParamField>
+
+```json
+{
+  "error": "Too many file operations, please slow down"
+}
+```
+
+### Webhook Testing
+
+Rate limit for testing webhook endpoints:
+
+<ParamField path="Webhook Tests" type="endpoint">
+  **5 requests per minute**
+  
+  Prevents abuse of webhook test functionality.
+</ParamField>
+
+```json
+{
+  "error": "Too many webhook tests, please wait before testing again"
+}
+```
+
+## Rate Limit Scope
+
+### IP-Based Limiting
+
+Most rate limits are applied per client IP address. The API detects your IP from:
+
+1. `X-Forwarded-For` header (first IP in list)
+2. `X-Real-IP` header
+3. `CF-Connecting-IP` header (Cloudflare)
+4. Direct connection IP (fallback)
+
+### Combined Scoping
+
+Server action rate limits use a combination of:
+- Client IP address
+- Server ID
+
+This allows you to perform actions on multiple servers simultaneously while preventing abuse on individual servers.
+
+## Handling Rate Limits
+
+### Best Practices
+
+1. **Monitor Headers** - Check `X-RateLimit-Remaining` before making requests
+2. **Respect Retry-After** - Wait the specified time before retrying
+3. **Implement Backoff** - Use exponential backoff for retries
+4. **Batch Operations** - Combine multiple operations where possible
+5. **Cache Responses** - Store frequently accessed data locally
+
+### Example: Checking Rate Limits
+
+```javascript
+const response = await fetch('http://localhost:3001/api/servers', {
+  headers: {
+    'Cookie': 'better-auth.session_token=<token>'
+  }
+});
+
+const remaining = response.headers.get('X-RateLimit-Remaining');
+const reset = response.headers.get('X-RateLimit-Reset');
+
+console.log(`Requests remaining: ${remaining}`);
+console.log(`Resets at: ${new Date(reset * 1000)}`);
+
+if (response.status === 429) {
+  const retryAfter = response.headers.get('Retry-After');
+  console.log(`Rate limited. Retry after ${retryAfter} seconds`);
+}
+```
+
+### Example: Exponential Backoff
+
+```javascript
+async function makeRequestWithBackoff(url, options, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    const response = await fetch(url, options);
+    
+    if (response.status !== 429) {
+      return response;
+    }
+    
+    const retryAfter = response.headers.get('Retry-After');
+    const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, i) * 1000;
+    
+    console.log(`Rate limited. Waiting ${delay}ms before retry...`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+```
+
+## Production Considerations
+
+<Warning>
+The current implementation uses an in-memory store for rate limiting. For distributed production deployments, consider using Redis or another distributed cache to share rate limit state across API instances.
+</Warning>
+
+### Cleanup
+
+Rate limit entries are automatically cleaned up:
+- Old entries (>1 hour) are removed every 5 minutes
+- Helps prevent memory leaks in long-running processes
+
+## Bypassing Rate Limits
+
+There is no built-in mechanism to bypass rate limits. All clients, including administrators, are subject to the same limits to ensure system stability.
+
+If you need higher limits for specific use cases, consider:
+- Modifying the rate limit configuration in the source code
+- Implementing custom rate limit tiers based on user roles
+- Using request batching to reduce total request count

@@ -1,0 +1,586 @@
+---
+title: 'Servers'
+description: 'Manage game servers - create, configure, control, and monitor server instances'
+---
+
+## List Servers
+
+<CodeGroup>
+```http GET /api/servers
+GET /api/servers
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Lists all servers. Users see their own servers, admins see all servers.
+
+### Authentication
+
+Requires authentication with valid session token.
+
+### Response
+
+<ResponseField name="servers" type="array">
+  Array of server objects
+  
+  <Expandable title="Server Object">
+    <ResponseField name="id" type="string">Server UUID</ResponseField>
+    <ResponseField name="shortId" type="string">First section of UUID</ResponseField>
+    <ResponseField name="name" type="string">Server name</ResponseField>
+    <ResponseField name="description" type="string">Server description</ResponseField>
+    <ResponseField name="status" type="string">INSTALLING | STARTING | RUNNING | STOPPING | STOPPED | SUSPENDED | MAINTENANCE | RESTORING | ERROR</ResponseField>
+    <ResponseField name="memory" type="string">Memory limit in MiB (BigInt as string)</ResponseField>
+    <ResponseField name="disk" type="string">Disk limit in MiB (BigInt as string)</ResponseField>
+    <ResponseField name="cpu" type="number">CPU limit as percentage (100 = 1 core)</ResponseField>
+    <ResponseField name="swap" type="string">Swap in MiB: -1 = unlimited, 0 = disabled, positive values = limited</ResponseField>
+    <ResponseField name="node" type="object">Node information</ResponseField>
+    <ResponseField name="blueprint" type="object">Blueprint information</ResponseField>
+    <ResponseField name="owner" type="object">Owner information</ResponseField>
+    <ResponseField name="allocations" type="array">Network allocations</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "shortId": "550e8400",
+    "name": "Minecraft Server",
+    "description": "My awesome server",
+    "status": "RUNNING",
+    "memory": "2048",
+    "disk": "10240",
+    "cpu": 100,
+    "swap": "-1",
+    "node": {
+      "id": "node-1",
+      "displayName": "US East 1",
+      "isOnline": true,
+      "location": {
+        "name": "New York",
+        "country": "US"
+      }
+    },
+    "blueprint": {
+      "id": "minecraft",
+      "name": "Minecraft Java"
+    },
+    "allocations": [
+      {
+        "id": "alloc-1",
+        "ip": "0.0.0.0",
+        "port": 25565,
+        "alias": "Main"
+      }
+    ]
+  }
+]
+```
+</ResponseExample>
+
+---
+
+## Get Server
+
+<CodeGroup>
+```http GET /api/servers/:serverId
+GET /api/servers/{serverId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Retrieve detailed information about a specific server.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Authentication
+
+Requires server access (owner, admin, or member with permissions).
+
+### Response
+
+Returns a detailed server object with all fields.
+
+---
+
+## Create Server
+
+<CodeGroup>
+```http POST /api/servers
+POST /api/servers
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Create a new server instance. Admin only.
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Server name (1-100 characters)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Server description
+</ParamField>
+
+<ParamField body="nodeId" type="string" required>
+  Node UUID where server will be deployed
+</ParamField>
+
+<ParamField body="blueprintId" type="string" required>
+  Blueprint UUID (game type)
+</ParamField>
+
+<ParamField body="ownerId" type="string">
+  Owner user ID (defaults to current user)
+</ParamField>
+
+<ParamField body="memory" type="number" required>
+  Memory limit in MiB
+</ParamField>
+
+<ParamField body="disk" type="number" required>
+  Disk limit in MiB
+</ParamField>
+
+<ParamField body="cpu" type="number" required>
+  CPU as percentage (100 = 1 thread)
+</ParamField>
+
+<ParamField body="cpuPinning" type="string">
+  CPU pinning (e.g., "0,1,2,3" or "0-4")
+</ParamField>
+
+<ParamField body="swap" type="number" default="-1">
+  Swap in MiB: -1 = unlimited, 0 = disabled, positive values = limited
+</ParamField>
+
+<ParamField body="oomKillDisable" type="boolean" default="false">
+  Disable OOM killer
+</ParamField>
+
+<ParamField body="backupLimit" type="number" default="3">
+  Maximum number of backups
+</ParamField>
+
+<ParamField body="allocationLimit" type="number" default="1">
+  Maximum allocations user can add
+</ParamField>
+
+<ParamField body="allocationIds" type="array" required>
+  Array of allocation IDs (at least one required)
+</ParamField>
+
+<ParamField body="config" type="object">
+  Override blueprint config
+</ParamField>
+
+<ParamField body="variables" type="object">
+  Override blueprint variables (key-value pairs)
+</ParamField>
+
+<ParamField body="dockerImage" type="string">
+  Selected docker image from blueprint
+</ParamField>
+
+<ParamField body="autoShutdownEnabled" type="boolean">
+  null = inherit global, true = enabled, false = disabled
+</ParamField>
+
+<ParamField body="autoShutdownTimeout" type="number">
+  Inactivity timeout in minutes (1-10080)
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "name": "My Minecraft Server",
+  "description": "Survival server",
+  "nodeId": "node-uuid",
+  "blueprintId": "minecraft-java",
+  "memory": 2048,
+  "disk": 10240,
+  "cpu": 100,
+  "swap": 512,
+  "backupLimit": 5,
+  "allocationLimit": 2,
+  "allocationIds": ["alloc-1"],
+  "variables": {
+    "MINECRAFT_VERSION": "1.20.4",
+    "SERVER_JARFILE": "server.jar"
+  },
+  "dockerImage": "ghcr.io/pterodactyl/yolks:java_21"
+}
+```
+</RequestExample>
+
+### Response
+
+Returns the created server object with status 201.
+
+### Errors
+
+- `400` - Validation failed, node offline, insufficient resources, or invalid allocations
+- `404` - Node or blueprint not found
+- `500` - Daemon communication error
+
+---
+
+## Update Server
+
+<CodeGroup>
+```http PATCH /api/servers/:serverId
+PATCH /api/servers/{serverId}
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Update server configuration.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Request Body
+
+All fields are optional. Only admins can modify resources and status.
+
+<ParamField body="name" type="string">
+  Server name (1-100 characters)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Server description
+</ParamField>
+
+<ParamField body="memory" type="number">
+  Memory limit in MiB (admin only)
+</ParamField>
+
+<ParamField body="disk" type="number">
+  Disk limit in MiB (admin only)
+</ParamField>
+
+<ParamField body="cpu" type="number">
+  CPU percentage (admin only)
+</ParamField>
+
+<ParamField body="status" type="string">
+  Server status (admin only)
+</ParamField>
+
+<ParamField body="autoShutdownEnabled" type="boolean">
+  Auto-shutdown setting (admin only)
+</ParamField>
+
+### Response
+
+Returns the updated server object.
+
+---
+
+## Delete Server
+
+<CodeGroup>
+```http DELETE /api/servers/:serverId
+DELETE /api/servers/{serverId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Permanently delete a server. Admin only.
+
+### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+### Response
+
+```json
+{ "success": true }
+```
+
+---
+
+## Power Actions
+
+### Start Server
+
+<CodeGroup>
+```http POST /api/servers/:serverId/start
+POST /api/servers/{serverId}/start
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Start the server.
+
+### Stop Server
+
+<CodeGroup>
+```http POST /api/servers/:serverId/stop
+POST /api/servers/{serverId}/stop
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Gracefully stop the server using configured stop command.
+
+### Restart Server
+
+<CodeGroup>
+```http POST /api/servers/:serverId/restart
+POST /api/servers/{serverId}/restart
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Restart the server.
+
+### Kill Server
+
+<CodeGroup>
+```http POST /api/servers/:serverId/kill
+POST /api/servers/{serverId}/kill
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Forcefully kill the server process (SIGKILL).
+
+### Response
+
+All power actions return:
+
+```json
+{
+  "success": true,
+  "status": "STARTING" // or STOPPING, STOPPED
+}
+```
+
+### Errors
+
+- `400` - Node is offline or server is suspended
+- `500` - Daemon communication error
+
+---
+
+## Send Command
+
+<CodeGroup>
+```http POST /api/servers/:serverId/command
+POST /api/servers/{serverId}/command
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Send a command to the server console.
+
+### Request Body
+
+<ParamField body="command" type="string" required>
+  Command to execute
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "command": "say Hello world!"
+}
+```
+</RequestExample>
+
+### Response
+
+```json
+{ "success": true }
+```
+
+---
+
+## Get Console Connection
+
+<CodeGroup>
+```http GET /api/servers/:serverId/console
+GET /api/servers/{serverId}/console
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get WebSocket connection information for server console.
+
+### Response
+
+<ResponseField name="websocketUrl" type="string">
+  WebSocket URL to connect to
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  JWT token for WebSocket authentication (expires in 15 minutes)
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "websocketUrl": "wss://node.example.com:8080/api/servers/550e8400-e29b-41d4-a716-446655440000/ws",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+</ResponseExample>
+
+---
+
+## Startup Configuration
+
+### Get Startup Config
+
+<CodeGroup>
+```http GET /api/servers/:serverId/startup
+GET /api/servers/{serverId}/startup
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get server startup configuration including variables and docker images.
+
+### Response
+
+<ResponseField name="variables" type="array">
+  Environment variables
+</ResponseField>
+
+<ResponseField name="dockerImages" type="array">
+  Available docker images
+</ResponseField>
+
+<ResponseField name="selectedDockerImage" type="string">
+  Currently selected docker image
+</ResponseField>
+
+<ResponseField name="startupCommand" type="string">
+  Generated startup command with variables substituted
+</ResponseField>
+
+<ResponseField name="stopCommand" type="string">
+  Stop command (e.g., "stop" or "SIGTERM")
+</ResponseField>
+
+### Update Startup Config
+
+<CodeGroup>
+```http PATCH /api/servers/:serverId/startup
+PATCH /api/servers/{serverId}/startup
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="variables" type="object">
+  Updated variable values (key-value pairs)
+</ParamField>
+
+<ParamField body="dockerImage" type="string">
+  Selected docker image from available options
+</ParamField>
+
+<ParamField body="customStartupCommands" type="string">
+  Custom commands to append
+</ParamField>
+
+---
+
+## Reinstall Server
+
+<CodeGroup>
+```http POST /api/servers/:serverId/reinstall
+POST /api/servers/{serverId}/reinstall
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Run the installation script again (wipes server files).
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Server reinstalling...",
+  "status": "INSTALLING"
+}
+```
+
+---
+
+## Change Blueprint
+
+<CodeGroup>
+```http POST /api/servers/:serverId/change-blueprint
+POST /api/servers/{serverId}/change-blueprint
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Change the server's blueprint (game type).
+
+### Request Body
+
+<ParamField body="blueprintId" type="string" required>
+  New blueprint UUID
+</ParamField>
+
+<ParamField body="dockerImage" type="string">
+  Docker image from new blueprint
+</ParamField>
+
+<ParamField body="variables" type="object">
+  Variable overrides for new blueprint
+</ParamField>
+
+<ParamField body="reinstall" type="boolean" default="false">
+  Whether to trigger reinstallation
+</ParamField>
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Blueprint changed successfully",
+  "server": { /* server object */ },
+  "reinstalling": false
+}
+```
+
+---
+
+## File Management
+
+File management endpoints are integrated with the server management API. See the [File Manager documentation](/features/file-manager) for details on file operations.
+
+---
+
+## Backups
+
+See [Backups](/api/backups) for backup management endpoints.

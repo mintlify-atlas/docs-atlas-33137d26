@@ -1,0 +1,532 @@
+---
+title: Console
+description: Real-time server console with WebSocket streaming, command execution, and log history
+---
+
+## Overview
+
+The integrated console provides real-time access to your game server's command-line interface. View live log output, execute commands, and monitor server activity—all through a modern web interface with WebSocket streaming.
+
+<CardGroup cols={2}>
+  <Card title="Real-Time Streaming" icon="bolt">
+    WebSocket connection streams console output instantly
+  </Card>
+  <Card title="Command Execution" icon="terminal">
+    Send commands directly to your game server
+  </Card>
+  <Card title="Color-Coded Output" icon="palette">
+    Syntax highlighting for info, error, and debug messages
+  </Card>
+  <Card title="Auto-Scroll" icon="arrow-down">
+    Automatically follows new messages with smart pause
+  </Card>
+</CardGroup>
+
+## Console Interface
+
+### Visual Components
+
+The console appears on the server overview page and consists of:
+
+**Log Output Area**:
+- Dark terminal-style background
+- Scrollable message history
+- Color-coded message types
+- Timestamp for each line
+- Auto-scrolls to newest messages
+
+**Command Input**:
+- Text field at bottom of console
+- Send button (or press Enter)
+- Command history (up/down arrows)
+- Disabled when server is offline
+
+### Message Types
+
+Console messages are color-coded by type:
+
+<Tabs>
+  <Tab title="Info">
+    <div className="font-mono text-sm text-blue-400">
+      [12:34:56] Server started on port 25565
+    </div>
+    
+    Standard informational messages:
+    - Server startup
+    - Player joins/leaves
+    - World saving
+    - Plugin loading
+  </Tab>
+  
+  <Tab title="Error">
+    <div className="font-mono text-sm text-red-400">
+      [12:34:56] ERROR: Failed to load plugin
+    </div>
+    
+    Error and warning messages:
+    - Plugin failures
+    - Configuration errors
+    - Exception stack traces
+    - Critical warnings
+  </Tab>
+  
+  <Tab title="Default">
+    <div className="font-mono text-sm text-zinc-300">
+      [12:34:56] Player123 joined the game
+    </div>
+    
+    Standard output:
+    - Player chat
+    - Command responses
+    - General log output
+    - Debug information
+  </Tab>
+</Tabs>
+
+## WebSocket Connection
+
+The console uses WebSocket for real-time bidirectional communication:
+
+### Connection Process
+
+1. **Request Console Credentials**
+   ```http
+   GET /api/servers/{serverId}/console
+   ```
+   Returns:
+   ```json
+   {
+     "websocketUrl": "wss://node1.example.com:8080/api/servers/{id}/ws",
+     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   }
+   ```
+
+2. **Establish WebSocket**
+   ```javascript
+   const ws = new WebSocket(websocketUrl)
+   ws.send(JSON.stringify({ event: 'auth', args: [token] }))
+   ```
+
+3. **Receive Events**
+   - `console output` - Log messages from server
+   - `stats` - Resource statistics (CPU, RAM)
+   - `status` - Server status changes
+
+4. **Send Commands**
+   ```javascript
+   ws.send(JSON.stringify({ event: 'send command', args: ['say Hello'] }))
+   ```
+
+### Connection States
+
+<Tabs>
+  <Tab title="Connected">
+    <div className="flex items-center gap-2 mb-2">
+      <div className="h-2 w-2 rounded-full bg-green-400" />
+      <span className="text-green-400">Connected to daemon</span>
+    </div>
+    
+    - Live console output streaming
+    - Commands can be executed
+    - Real-time statistics updates
+    - No connection banner shown
+  </Tab>
+  
+  <Tab title="Connecting">
+    <div className="flex items-center gap-2 mb-2">
+      <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+      <span className="text-yellow-400">Connecting...</span>
+    </div>
+    
+    - Attempting to establish WebSocket
+    - Console shows "Connecting" state
+    - Commands disabled
+    - Automatic retry on failure
+  </Tab>
+  
+  <Tab title="Disconnected">
+    <div className="flex items-center gap-2 mb-2">
+      <div className="h-2 w-2 rounded-full bg-red-400" />
+      <span className="text-red-400">Connection lost</span>
+    </div>
+    
+    - No console output received
+    - Commands cannot be sent
+    - Banner warns about connection issue
+    - Automatic reconnection attempts
+  </Tab>
+</Tabs>
+
+### Connection Banner
+
+If WebSocket fails to connect within 3 seconds:
+
+<div className="bg-amber-500/10 border border-amber-500/20 px-4 py-3 rounded text-amber-400 text-sm">
+  ⚠️ Unable to connect to daemon. Server controls may not work until connection is restored.
+</div>
+
+This indicates:
+- Daemon node is offline
+- Network connectivity issues
+- WebSocket port blocked
+- Token expired or invalid
+
+## Sending Commands
+
+Execute commands on your game server:
+
+### Via Web Console
+
+1. **Type Command**
+   ```
+   say Hello players!
+   ```
+
+2. **Press Enter** or click **Send**
+
+3. **Command Executes**
+   Output appears in console:
+   ```
+   [Server] Hello players!
+   ```
+
+**Required Permission**: `console.write`
+
+### Command Format
+
+Commands are sent exactly as typed:
+- **Minecraft**: `say`, `op`, `stop`, `whitelist add`
+- **Rust**: `save`, `kick`, `ban`
+- **Source Games**: `changelevel`, `sv_cheats`
+
+No prefix needed (e.g., type `say Hello`, not `/say Hello`).
+
+### Command History
+
+Navigate previous commands:
+- **Up Arrow**: Previous command
+- **Down Arrow**: Next command
+- History persists during session
+- Cleared on page refresh
+
+### Common Commands
+
+<AccordionGroup>
+  <Accordion title="Minecraft">
+    ```bash
+    # Player management
+    op PlayerName              # Grant operator
+    deop PlayerName            # Remove operator
+    kick PlayerName Reason     # Kick player
+    ban PlayerName Reason      # Ban player
+    whitelist add PlayerName   # Add to whitelist
+    
+    # Server control
+    say Message                # Broadcast message
+    stop                       # Stop server
+    save-all                   # Force world save
+    
+    # Teleportation
+    tp Player1 Player2         # Teleport player
+    ```
+  </Accordion>
+  
+  <Accordion title="Rust">
+    ```bash
+    # Server management
+    save                       # Save server state
+    quit                       # Stop server
+    
+    # Player management
+    kick PlayerName "Reason"   # Kick player
+    ban PlayerName "Reason"    # Ban player
+    unban PlayerName           # Unban player
+    
+    # Admin
+    ownerid SteamID64          # Grant owner
+    moderatorid SteamID64      # Grant moderator
+    ```
+  </Accordion>
+  
+  <Accordion title="Source Games (CS:GO, TF2)">
+    ```bash
+    # Map control
+    changelevel de_dust2       # Change map
+    mp_restartgame 1           # Restart match
+    
+    # Player management
+    kick PlayerName            # Kick player
+    ban PlayerName             # Ban player
+    
+    # Server settings
+    sv_cheats 1                # Enable cheats
+    mp_roundtime 5             # Set round time
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Viewing Console Output
+
+### Log Streaming
+
+Console messages stream in real-time:
+
+```
+[12:34:01] [Server thread/INFO]: Starting minecraft server version 1.20.4
+[12:34:02] [Server thread/INFO]: Loading properties
+[12:34:03] [Server thread/INFO]: Default game type: SURVIVAL
+[12:34:05] [Server thread/INFO]: Preparing level "world"
+[12:34:08] [Server thread/INFO]: Done (6.234s)! For help, type "help"
+```
+
+### Auto-Scroll Behavior
+
+The console automatically scrolls to show new messages:
+
+**Auto-Scroll Enabled**:
+- Scrolled to bottom
+- New messages auto-scroll into view
+- Keeps latest output visible
+
+**Auto-Scroll Paused**:
+- User scrolls up to view history
+- New messages don't interrupt reading
+- Resume by scrolling to bottom
+
+### Message Limits
+
+To prevent memory issues:
+- **Buffer Size**: 1000 most recent messages
+- **Older Messages**: Automatically removed
+- **History**: Not persisted across page reloads
+
+For complete logs, use:
+- Server log files via file manager
+- SFTP to download log files
+- Third-party logging services
+
+### Timestamps
+
+Each message includes:
+- **Browser Timestamp**: When message was received by client
+- **Format**: `HH:MM:SS`
+- **Timezone**: User's local timezone
+
+Server may also include its own timestamps in the message.
+
+## Console Permissions
+
+Console access requires permission nodes:
+
+| Permission | Description |
+|------------|-------------|
+| `console.read` | View server console output |
+| `console.write` | Send commands to server console |
+
+### Permission Examples
+
+**View-Only**:
+```json
+["console.read"]
+```
+User can see console output but cannot send commands.
+
+**Full Console Access**:
+```json
+["console.read", "console.write"]
+```
+User can view output and execute commands.
+
+**Console Wildcard**:
+```json
+["console.*"]
+```
+Grants all console permissions.
+
+## Non-WebSocket Fallback
+
+If WebSocket is unavailable, use the HTTP fallback:
+
+### Send Command via API
+
+```http
+POST /api/servers/{serverId}/command
+Content-Type: application/json
+
+{
+  "command": "say Hello from API"
+}
+```
+
+### Fetch Logs
+
+```http
+GET /api/servers/{serverId}/logs
+```
+
+Returns recent log lines (not real-time).
+
+<Note>
+  The fallback provides basic functionality but lacks real-time streaming. Use WebSocket for the best experience.
+</Note>
+
+## Activity Tracking
+
+Commands executed through the console are logged:
+
+- **Activity Feed**: Shows who ran what command
+- **Timestamp**: When command was executed
+- **User Attribution**: Links command to user account
+- **Command Content**: Full command text
+
+**Required Permission**: `activity.read` (to view activity logs)
+
+### Auto-Shutdown Integration
+
+Servers with auto-shutdown enabled track console activity:
+
+- Sending a command updates `lastActivityAt`
+- Resets inactivity timer
+- Prevents shutdown during active management
+
+## EULA Extension
+
+Some games (Minecraft) require EULA acceptance:
+
+**Automatic Detection**:
+1. Console monitors for EULA prompt:
+   ```
+   You need to agree to the EULA in order to run the server.
+   ```
+
+2. Panel shows EULA modal:
+   - Full EULA text
+   - Accept/Decline buttons
+   - Link to Mojang EULA
+
+3. On accept:
+   - Creates `eula.txt` with `eula=true`
+   - Restarts server automatically
+
+4. Server starts successfully
+
+This eliminates manual file editing for first-time Minecraft servers.
+
+## Troubleshooting
+
+### No Console Output
+
+**Symptoms**: Console is blank, no messages appear
+
+**Causes & Solutions**:
+
+1. **Server Offline**
+   - Check server status badge
+   - Start server if stopped
+   - Console only shows output when running
+
+2. **WebSocket Disconnected**
+   - Check for connection banner
+   - Verify node is online
+   - Refresh page to reconnect
+
+3. **Missing Permission**
+   - Ensure you have `console.read` permission
+   - Contact administrator to grant access
+
+### Commands Don't Work
+
+**Symptoms**: Commands sent but no response
+
+**Causes & Solutions**:
+
+1. **Server Not Running**
+   - Console commands only work when server is `RUNNING`
+   - Start server first
+
+2. **Wrong Command Format**
+   - Check game-specific syntax
+   - Some games use different prefixes
+   - Refer to game documentation
+
+3. **Missing Permission**
+   - Verify you have `console.write` permission
+   - Admin must grant console access
+
+4. **WebSocket Disconnected**
+   - Commands require active WebSocket
+   - Wait for connection to restore
+   - Use HTTP fallback endpoint
+
+### Console Shows Old Messages
+
+**Symptoms**: After starting server, console shows previous session
+
+**Cause**: Message buffer retains history across server restarts
+
+**Solution**: Refresh page to clear buffer, or scroll to bottom for latest output
+
+### WebSocket Won't Connect
+
+**Symptoms**: Connection banner persists, no console output
+
+**Causes & Solutions**:
+
+1. **Node Offline**
+   - Check node status in admin panel
+   - Verify daemon is running on node
+   - Check daemon logs for errors
+
+2. **Firewall Blocking**
+   - WebSocket uses node's primary port (8080)
+   - Allow inbound/outbound on daemon port
+   - Check browser console for network errors
+
+3. **Invalid Token**
+   - Tokens expire after 15 minutes
+   - Refresh page to generate new token
+   - Check browser console for auth errors
+
+4. **HTTPS Mixed Content**
+   - Panel on HTTPS but node on HTTP
+   - Browser blocks insecure WebSocket
+   - Use HTTPS for daemon or HTTP for panel
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Monitor Server Startup">
+    Watch console during server start:
+    - Verify plugins load correctly
+    - Check for errors or warnings
+    - Confirm "Done" message appears
+    - Test with simple command
+  </Accordion>
+  
+  <Accordion title="Use Console for Diagnostics">
+    When troubleshooting:
+    - Check console for error messages
+    - Look for exception stack traces
+    - Identify failed plugin loads
+    - Monitor resource warnings
+  </Accordion>
+  
+  <Accordion title="Be Cautious with Commands">
+    Some commands are destructive:
+    - `stop` - Stops the server
+    - `ban` - Permanently bans players
+    - `delete` - Removes data
+    
+    Double-check before executing.
+  </Accordion>
+  
+  <Accordion title="Grant Console Access Carefully">
+    Console write permission is powerful:
+    - Can execute any server command
+    - Can ban/kick players
+    - Can stop server
+    - Can modify game state
+    
+    Only grant to trusted users.
+  </Accordion>
+</AccordionGroup>

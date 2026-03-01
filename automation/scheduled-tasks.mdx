@@ -1,0 +1,217 @@
+---
+title: Scheduled Tasks
+description: Automate recurring tasks with StellarStack's built-in scheduler
+---
+
+StellarStack includes a powerful task scheduler that automatically runs background jobs for maintenance, monitoring, and automation.
+
+## Built-in Scheduled Tasks
+
+The daemon runs several scheduled tasks automatically:
+
+### Disk Usage Calculation
+
+Runs every **60 seconds** to track storage usage across all servers.
+
+```rust
+// Automatically monitors disk usage
+Interval: 60 seconds
+Task: Calculate filesystem usage for all servers
+```
+
+### Activity Log Batching
+
+Runs every **5 seconds** to collect and send activity logs to the control panel.
+
+```rust
+Interval: 5 seconds
+Task: Batch and transmit activity logs
+```
+
+### Server Status Reporting
+
+Runs every **30 seconds** to sync server status with the API.
+
+```rust
+Interval: 30 seconds
+Task: Report server status to control panel
+```
+
+### Temporary File Cleanup
+
+Runs every **5 minutes** to remove old temporary files.
+
+```rust
+Interval: 300 seconds (5 minutes)
+Task: Clean up temporary files and cache
+```
+
+## Creating Custom Scheduled Tasks
+
+You can create custom scheduled tasks using the daemon's scheduler API:
+
+```typescript
+import { Scheduler, Job } from '@stellarstack/daemon';
+
+const scheduler = new Scheduler();
+
+// Schedule a simple task
+const handle = await scheduler.schedule(
+  'backup-rotation',
+  Duration.from_secs(3600), // Every hour
+  async () => {
+    console.log('Running backup rotation...');
+    // Your task logic here
+  }
+);
+```
+
+### Advanced Job Configuration
+
+Create jobs with custom settings:
+
+```typescript
+const job = new Job('custom-task', Duration.from_secs(300))
+  .run_immediately(true); // Run on start
+
+const handle = await scheduler.schedule_job(job, async () => {
+  // Task logic
+});
+```
+
+## Job Management
+
+### Enable/Disable Jobs
+
+```typescript
+// Disable a job temporarily
+await scheduler.disable('backup-rotation');
+
+// Re-enable the job
+await scheduler.enable('backup-rotation');
+```
+
+### Cancel a Job
+
+```typescript
+// Stop a running job
+handle.cancel();
+```
+
+### View Job Statistics
+
+```typescript
+const stats = await scheduler.stats('backup-rotation');
+
+console.log({
+  runCount: stats.run_count,
+  successCount: stats.success_count,
+  failureCount: stats.failure_count,
+  lastRun: stats.last_run,
+  avgDurationMs: stats.avg_duration_ms
+});
+```
+
+## One-Time Delayed Tasks
+
+Schedule a task to run once after a delay:
+
+```typescript
+import { schedule_once } from '@stellarstack/daemon';
+
+// Run after 5 minutes
+schedule_once(Duration.from_secs(300), async () => {
+  console.log('Delayed task executed');
+});
+```
+
+## Use Cases
+
+### Automated Backups
+
+```typescript
+await scheduler.schedule(
+  'nightly-backup',
+  Duration.from_secs(86400), // Daily
+  async () => {
+    const servers = await manager.all();
+    for (const server of servers) {
+      await createBackup(server.uuid());
+    }
+  }
+);
+```
+
+### Resource Monitoring
+
+```typescript
+await scheduler.schedule(
+  'resource-check',
+  Duration.from_secs(120), // Every 2 minutes
+  async () => {
+    const servers = await manager.all();
+    for (const server of servers) {
+      const usage = await getResourceUsage(server);
+      if (usage.memory > 90) {
+        await sendAlert(server, 'High memory usage');
+      }
+    }
+  }
+);
+```
+
+### Log Rotation
+
+```typescript
+await scheduler.schedule(
+  'log-rotation',
+  Duration.from_secs(604800), // Weekly
+  async () => {
+    await rotateLogs();
+    await compressOldLogs();
+  }
+);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep tasks lightweight">
+    Scheduled tasks run on the main event loop. Avoid blocking operations or long-running synchronous code.
+  </Accordion>
+
+  <Accordion title="Handle errors gracefully">
+    Jobs that panic will have their failures recorded in statistics. Always wrap task logic in proper error handling.
+  </Accordion>
+
+  <Accordion title="Use appropriate intervals">
+    Don't schedule tasks too frequently. For most operations, intervals of 30 seconds or more are sufficient.
+  </Accordion>
+
+  <Accordion title="Monitor job statistics">
+    Regularly check job statistics to identify tasks that are failing or taking too long to complete.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Warning>
+If a scheduled job is not running, verify that:
+- The job is enabled (`scheduler.enable('job-name')`)
+- The job handle has not been cancelled
+- The daemon's cron registry has been started
+</Warning>
+
+### Check Job Status
+
+```typescript
+const jobNames = await scheduler.list();
+console.log('Registered jobs:', jobNames);
+
+for (const name of jobNames) {
+  const job = await scheduler.get(name);
+  if (job) {
+    console.log(`${name}: ${job.is_enabled() ? 'enabled' : 'disabled'}`);
+  }
+}
+```

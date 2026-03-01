@@ -1,0 +1,565 @@
+---
+title: Settings
+description: Manage system settings and configuration
+---
+
+<Note>All settings endpoints require admin authentication.</Note>
+
+## Get All Settings
+
+Get an overview of all system settings.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="cloudflare" type="object">
+  <Expandable title="properties">
+    <ResponseField name="enabled" type="boolean">
+      Whether Cloudflare integration is enabled
+    </ResponseField>
+    <ResponseField name="domain" type="string">
+      Base domain for subdomains
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="subdomains" type="object">
+  <Expandable title="properties">
+    <ResponseField name="enabled" type="boolean">
+      Whether subdomain system is enabled
+    </ResponseField>
+    <ResponseField name="baseDomain" type="string">
+      Base domain for subdomains
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="email" type="object">
+  <Expandable title="properties">
+    <ResponseField name="provider" type="string">
+      Email provider: "smtp", "resend", "sendgrid", "mailgun"
+    </ResponseField>
+    <ResponseField name="configured" type="boolean">
+      Whether email is configured
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="branding" type="object">
+  <Expandable title="properties">
+    <ResponseField name="appName" type="string">
+      Application name
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="autoShutdown" type="object">
+  <Expandable title="properties">
+    <ResponseField name="enabled" type="boolean">
+      Whether auto-shutdown is enabled globally
+    </ResponseField>
+    <ResponseField name="timeout" type="number">
+      Default timeout in minutes
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Cloudflare Settings
+
+### Get Cloudflare Settings
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings/cloudflare \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="apiToken" type="string">
+  Masked API token ("********" if set, "" if not set)
+</ResponseField>
+
+<ResponseField name="hasApiToken" type="boolean">
+  Whether an API token is configured
+</ResponseField>
+
+<ResponseField name="zoneId" type="string">
+  Cloudflare zone ID
+</ResponseField>
+
+<ResponseField name="domain" type="string">
+  Domain name
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  Whether Cloudflare integration is enabled
+</ResponseField>
+
+### Update Cloudflare Settings
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/settings/cloudflare \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiToken": "your-cloudflare-token",
+    "zoneId": "zone-id",
+    "domain": "stellarstack.io",
+    "enabled": true
+  }'
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="apiToken" type="string">
+  Cloudflare API token (send "********" to keep existing)
+</ParamField>
+
+<ParamField body="zoneId" type="string">
+  Cloudflare zone ID
+</ParamField>
+
+<ParamField body="domain" type="string">
+  Domain name
+</ParamField>
+
+<ParamField body="enabled" type="boolean">
+  Enable/disable integration
+</ParamField>
+
+### Test Cloudflare Connection
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/settings/cloudflare/test \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Whether connection test succeeded
+</ResponseField>
+
+<ResponseField name="zone" type="object" required={false}>
+  Zone information if successful
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Zone ID
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Zone name
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Zone status
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="error" type="string" required={false}>
+  Error message if test failed
+</ResponseField>
+
+---
+
+## Subdomain Settings
+
+### Get Subdomain Settings
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings/subdomains \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="enabled" type="boolean">
+  Whether subdomain system is enabled
+</ResponseField>
+
+<ResponseField name="baseDomain" type="string">
+  Base domain for subdomains
+</ResponseField>
+
+<ResponseField name="autoProvision" type="boolean">
+  Whether to automatically provision DNS
+</ResponseField>
+
+<ResponseField name="dnsProvider" type="string">
+  DNS provider: "cloudflare" or "manual"
+</ResponseField>
+
+### Update Subdomain Settings
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/settings/subdomains \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "baseDomain": "stellarstack.io",
+    "autoProvision": true,
+    "dnsProvider": "cloudflare"
+  }'
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="enabled" type="boolean">
+  Enable/disable subdomain system
+</ParamField>
+
+<ParamField body="baseDomain" type="string">
+  Base domain
+</ParamField>
+
+<ParamField body="autoProvision" type="boolean">
+  Auto-provision DNS records
+</ParamField>
+
+<ParamField body="dnsProvider" type="string">
+  DNS provider: "cloudflare" or "manual"
+</ParamField>
+
+---
+
+## Email Settings
+
+### Get Email Settings
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings/email \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="provider" type="string">
+  Email provider: "smtp", "resend", "sendgrid", "mailgun"
+</ResponseField>
+
+<ResponseField name="fromEmail" type="string">
+  From email address
+</ResponseField>
+
+<ResponseField name="fromName" type="string">
+  From name
+</ResponseField>
+
+<ResponseField name="smtp" type="object" required={false}>
+  SMTP configuration (password masked)
+  
+  <Expandable title="properties">
+    <ResponseField name="host" type="string">
+      SMTP host
+    </ResponseField>
+    <ResponseField name="port" type="number">
+      SMTP port
+    </ResponseField>
+    <ResponseField name="secure" type="boolean">
+      Use TLS/SSL
+    </ResponseField>
+    <ResponseField name="username" type="string">
+      SMTP username
+    </ResponseField>
+    <ResponseField name="password" type="string">
+      Masked password ("********" if set)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="apiKey" type="string">
+  Masked API key ("********" if set)
+</ResponseField>
+
+<ResponseField name="hasApiKey" type="boolean">
+  Whether an API key is configured
+</ResponseField>
+
+### Update Email Settings
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/settings/email \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "smtp",
+    "fromEmail": "noreply@stellarstack.io",
+    "fromName": "StellarStack",
+    "smtp": {
+      "host": "smtp.example.com",
+      "port": 587,
+      "secure": true,
+      "username": "user",
+      "password": "pass"
+    }
+  }'
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="provider" type="string">
+  Email provider
+</ParamField>
+
+<ParamField body="fromEmail" type="string">
+  From email address (must be valid email)
+</ParamField>
+
+<ParamField body="fromName" type="string">
+  From name
+</ParamField>
+
+<ParamField body="smtp" type="object">
+  SMTP configuration
+  
+  <Expandable title="properties">
+    <ParamField body="host" type="string" required>
+      SMTP host
+    </ParamField>
+    <ParamField body="port" type="number" required>
+      SMTP port
+    </ParamField>
+    <ParamField body="secure" type="boolean" required>
+      Use TLS/SSL
+    </ParamField>
+    <ParamField body="username" type="string" required>
+      SMTP username
+    </ParamField>
+    <ParamField body="password" type="string" required>
+      SMTP password (send "********" to keep existing)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="apiKey" type="string">
+  API key for providers like Resend, SendGrid, Mailgun (send "********" to keep existing)
+</ParamField>
+
+### Test Email Configuration
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.stellarstack.io/settings/email/test \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "testEmail": "admin@example.com"
+  }'
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="testEmail" type="string" required>
+  Email address to send test email to
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Whether test email was sent successfully
+</ResponseField>
+
+<ResponseField name="message" type="string" required={false}>
+  Success message
+</ResponseField>
+
+<ResponseField name="error" type="string" required={false}>
+  Error message if test failed
+</ResponseField>
+
+---
+
+## Branding Settings
+
+### Get Branding Settings
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings/branding \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="appName" type="string">
+  Application name (1-50 characters)
+</ResponseField>
+
+<ResponseField name="logoUrl" type="string" required={false}>
+  Logo URL
+</ResponseField>
+
+<ResponseField name="faviconUrl" type="string" required={false}>
+  Favicon URL
+</ResponseField>
+
+<ResponseField name="primaryColor" type="string">
+  Primary color (hex format)
+</ResponseField>
+
+<ResponseField name="supportEmail" type="string">
+  Support email address
+</ResponseField>
+
+<ResponseField name="supportUrl" type="string" required={false}>
+  Support URL
+</ResponseField>
+
+<ResponseField name="termsUrl" type="string" required={false}>
+  Terms of service URL
+</ResponseField>
+
+<ResponseField name="privacyUrl" type="string" required={false}>
+  Privacy policy URL
+</ResponseField>
+
+<ResponseField name="footerText" type="string">
+  Footer text (max 200 characters)
+</ResponseField>
+
+<ResponseField name="customCss" type="string">
+  Custom CSS (max 10000 characters)
+</ResponseField>
+
+### Update Branding Settings
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/settings/branding \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appName": "My Server Panel",
+    "primaryColor": "#3b82f6",
+    "supportEmail": "support@example.com"
+  }'
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="appName" type="string">
+  Application name (1-50 characters)
+</ParamField>
+
+<ParamField body="logoUrl" type="string">
+  Logo URL (must be valid URL or null)
+</ParamField>
+
+<ParamField body="faviconUrl" type="string">
+  Favicon URL (must be valid URL or null)
+</ParamField>
+
+<ParamField body="primaryColor" type="string">
+  Primary color (must be hex format like #3b82f6)
+</ParamField>
+
+<ParamField body="supportEmail" type="string">
+  Support email (must be valid email)
+</ParamField>
+
+<ParamField body="supportUrl" type="string">
+  Support URL (must be valid URL or null)
+</ParamField>
+
+<ParamField body="termsUrl" type="string">
+  Terms URL (must be valid URL or null)
+</ParamField>
+
+<ParamField body="privacyUrl" type="string">
+  Privacy URL (must be valid URL or null)
+</ParamField>
+
+<ParamField body="footerText" type="string">
+  Footer text (max 200 characters)
+</ParamField>
+
+<ParamField body="customCss" type="string">
+  Custom CSS (max 10000 characters)
+</ParamField>
+
+### Get Public Branding
+
+Public endpoint for frontend to retrieve branding (no authentication required).
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings/branding/public
+```
+</CodeGroup>
+
+#### Response
+
+Returns public-safe branding information (excludes customCss for security).
+
+---
+
+## Auto-Shutdown Settings
+
+### Get Auto-Shutdown Settings
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/settings/auto-shutdown \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="enabled" type="boolean">
+  Whether auto-shutdown is enabled globally
+</ResponseField>
+
+<ResponseField name="timeout" type="number">
+  Inactivity timeout in minutes (1-10080, default 60)
+</ResponseField>
+
+### Update Auto-Shutdown Settings
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.stellarstack.io/settings/auto-shutdown \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "timeout": 120
+  }'
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="enabled" type="boolean">
+  Enable/disable auto-shutdown globally
+</ParamField>
+
+<ParamField body="timeout" type="number">
+  Timeout in minutes (1-10080, where 10080 = 7 days)
+</ParamField>

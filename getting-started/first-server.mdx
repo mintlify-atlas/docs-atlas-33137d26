@@ -1,0 +1,384 @@
+---
+title: Creating Your First Server
+description: Set up and launch your first game server with StellarStack
+---
+
+This guide walks you through creating and managing your first game server using StellarStack.
+
+## Before You Begin
+
+Before creating a game server, ensure you have:
+
+<AccordionGroup>
+  <Accordion title="A node configured">
+    StellarStack uses **nodes** (physical or virtual machines) to host game servers. Each node runs the Rust daemon that manages Docker containers.
+
+    You need at least one node configured in your panel. If you haven't set up a node yet, see the [Node Management documentation](/features/node-management).
+  </Accordion>
+
+  <Accordion title="Docker installed on the node">
+    The daemon requires Docker to create and manage game server containers.
+
+    Verify Docker is running on your node:
+    ```bash
+    docker --version
+    docker ps
+    ```
+  </Accordion>
+
+  <Accordion title="Sufficient resources">
+    Check that your node has available:
+    - **CPU** - At least 1-2 cores per game server
+    - **Memory** - Minimum 2-4GB RAM (varies by game)
+    - **Disk** - At least 10-20GB free space
+    - **Ports** - Available ports for game server and SFTP
+  </Accordion>
+</AccordionGroup>
+
+## Creating a Game Server
+
+<Steps>
+  <Step title="Navigate to server creation">
+    From the dashboard, click the **Create Server** button or navigate to **Servers** > **Create New**.
+  </Step>
+
+  <Step title="Choose a blueprint">
+    Select a game server blueprint from the available options:
+
+    - **Minecraft** (Java Edition)
+    - **Minecraft Bedrock**
+    - **Terraria**
+    - **Valheim**
+    - **Rust**
+    - **ARK: Survival Evolved**
+    - **Custom** (bring your own Docker image)
+
+    <Note>
+      Blueprints are pre-configured templates that include the game server software, default settings, and resource recommendations.
+    </Note>
+
+    Click **Select** on your chosen blueprint.
+  </Step>
+
+  <Step title="Configure server details">
+    Fill in the basic server information:
+
+    **Server Name**
+    - A friendly name for your server (e.g., "My Minecraft Server")
+    - This is only visible in the panel
+
+    **Server Description** (optional)
+    - Additional notes about the server
+    - Helpful for identifying server purpose
+
+    **Node Selection**
+    - Choose which node will host this server
+    - Only nodes with sufficient resources will be shown
+
+    **Location** (if you have multiple)
+    - Select the geographical location/datacenter
+    - Affects latency for players
+  </Step>
+
+  <Step title="Allocate resources">
+    Configure the server's resource limits:
+
+    **CPU Limit**
+    - Percentage of CPU cores available to the server
+    - Default: 100% (recommended: 100-200% for multi-core)
+
+    **Memory Limit**
+    - Maximum RAM the server can use
+    - Minimum recommendations:
+      - Minecraft Java: 2-4GB
+      - Minecraft Bedrock: 1-2GB
+      - Terraria: 512MB-1GB
+      - Valheim: 4-6GB
+
+    **Disk Space**
+    - Maximum storage for server files
+    - Includes world saves, plugins, and backups
+    - Recommended: 10-20GB minimum
+
+    <Warning>
+      Setting limits too low will cause the server to crash or perform poorly. Follow the blueprint's recommended values.
+    </Warning>
+  </Step>
+
+  <Step title="Configure network settings">
+    Set up the server's network configuration:
+
+    **Primary Port**
+    - The main game server port (auto-assigned by default)
+    - Can manually specify if needed
+
+    **Additional Ports** (if required by game)
+    - Some games need multiple ports (e.g., RCON, query)
+    - These are typically configured automatically
+
+    **SFTP Port**
+    - Port for file transfer access
+    - Auto-assigned per server
+
+    <Note>
+      StellarStack automatically allocates available ports from your node's port range. Manual allocation is only needed for specific requirements.
+    </Note>
+  </Step>
+
+  <Step title="Set startup configuration">
+    Customize the server's startup parameters:
+
+    **Docker Image**
+    - Pre-filled based on blueprint
+    - Example: `itzg/minecraft-server:java21`
+
+    **Startup Command**
+    - The command executed when the server starts
+    - Pre-configured by blueprint
+    - Can be customized for advanced usage
+
+    **Environment Variables**
+    - Game-specific settings (difficulty, max players, world seed, etc.)
+    - Populated with blueprint defaults
+    - Modify as needed for your server
+
+    Common Minecraft environment variables:
+    ```bash
+    EULA=TRUE
+    VERSION=1.20.4
+    MAX_PLAYERS=20
+    DIFFICULTY=normal
+    MODE=survival
+    MOTD=Welcome to my server!
+    ```
+  </Step>
+
+  <Step title="Review and create">
+    Review your configuration:
+    - Server name and description
+    - Node and location
+    - Resource allocations
+    - Port assignments
+    - Startup settings
+
+    Click **Create Server** to provision the server.
+
+    <Note>
+      Server creation typically takes 30-60 seconds. The daemon will:
+      1. Pull the Docker image (if not cached)
+      2. Create the container
+      3. Allocate ports and resources
+      4. Initialize the server
+    </Note>
+  </Step>
+</Steps>
+
+## Starting Your Server
+
+Once created, the server will appear in your server list with a **Stopped** status.
+
+<Steps>
+  <Step title="Navigate to server console">
+    Click on your server in the server list to open the server management page.
+  </Step>
+
+  <Step title="Start the server">
+    Click the **Start** button in the control panel.
+
+    The server status will change:
+    - **Starting** - Container is being created
+    - **Running** - Server is online
+
+    You'll see real-time console output as the server initializes.
+  </Step>
+
+  <Step title="Monitor startup process">
+    Watch the console for:
+    - Game server initialization
+    - World generation (first start may take longer)
+    - "Server started" or "Ready" message
+
+    **Example Minecraft output:**
+    ```
+    [Server] Starting minecraft server version 1.20.4
+    [Server] Preparing level "world"
+    [Server] Done (15.235s)! For help, type "help"
+    ```
+  </Step>
+</Steps>
+
+## Connecting to Your Server
+
+<Tabs>
+  <Tab title="Minecraft Java">
+    1. Open Minecraft Java Edition
+    2. Click **Multiplayer**
+    3. Click **Add Server**
+    4. Enter:
+       - **Server Name:** Any name you want
+       - **Server Address:** `your-node-ip:port`
+    5. Click **Done** and connect
+
+    **Example:**
+    ```
+    192.168.1.100:25565
+    ```
+  </Tab>
+
+  <Tab title="Minecraft Bedrock">
+    1. Open Minecraft Bedrock Edition
+    2. Click **Play** > **Servers** > **Add Server**
+    3. Enter:
+       - **Server Name:** Any name
+       - **Server Address:** `your-node-ip`
+       - **Port:** `19132` (or your configured port)
+    4. Click **Save** and connect
+  </Tab>
+
+  <Tab title="Terraria">
+    1. Open Terraria
+    2. Click **Multiplayer** > **Join via IP**
+    3. Enter:
+       - **IP Address:** `your-node-ip:port`
+    4. Click **Accept** and connect
+
+    **Default port:** `7777`
+  </Tab>
+
+  <Tab title="Valheim">
+    1. Open Valheim
+    2. Click **Join Game** > **Community**
+    3. Search for your server name
+    4. Or use **Add Server:**
+       - Enter `your-node-ip:port`
+
+    **Default port:** `2456-2458` (requires 3 consecutive ports)
+  </Tab>
+</Tabs>
+
+<Note>
+  Your server's IP address and port are shown in the panel under **Connection Details**.
+</Note>
+
+## Basic Server Management
+
+### Power Controls
+
+Control your server's state from the console:
+
+- **Start** - Boot up the server
+- **Stop** - Gracefully shut down (sends stop command, waits, then kills container)
+- **Restart** - Stop and start in sequence
+- **Kill** - Force stop (immediate termination, may cause data loss)
+
+<Warning>
+  Use **Kill** only when the server is unresponsive. Always prefer **Stop** for graceful shutdown.
+</Warning>
+
+### Console Commands
+
+Send commands to your server through the console:
+
+**Minecraft commands:**
+```bash
+say Welcome to the server!
+op PlayerName
+whitelist add PlayerName
+difficulty hard
+time set day
+```
+
+**General server commands:**
+```bash
+stop          # Gracefully stop the server
+help          # List available commands
+list          # Show online players
+```
+
+### Resource Monitoring
+
+Monitor your server's resource usage in real-time:
+
+- **CPU Usage** - Current CPU percentage
+- **Memory Usage** - RAM consumption vs. limit
+- **Network I/O** - Incoming/outgoing bandwidth
+- **Disk Usage** - Storage consumption
+
+Resource graphs update every few seconds via WebSocket.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Manager" icon="folder" href="/features/file-manager">
+    Edit server files and configurations
+  </Card>
+  <Card title="Backups" icon="database" href="/features/backups">
+    Set up automated backups
+  </Card>
+  <Card title="Subusers" icon="users" href="/user-management/subusers">
+    Invite friends with custom permissions
+  </Card>
+  <Card title="Task Scheduler" icon="clock" href="/automation/scheduled-tasks">
+    Automate server tasks
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server won't start">
+    **Check:**
+    - Console output for error messages
+    - Node has sufficient resources available
+    - Docker is running on the node
+    - Ports are available and not in use
+    - Environment variables are correctly set
+
+    **Common issues:**
+    - Missing `EULA=TRUE` for Minecraft
+    - Insufficient memory allocation
+    - Port conflicts with other servers
+  </Accordion>
+
+  <Accordion title="Can't connect to server">
+    **Verify:**
+    - Server is in **Running** state
+    - Server has fully initialized (check console)
+    - Using correct IP address and port
+    - Firewall rules allow the port
+    - Game version matches server version
+
+    **Test connection:**
+    ```bash
+    # Check if port is open
+    telnet your-node-ip port
+    ```
+  </Accordion>
+
+  <Accordion title="Server is lagging">
+    **Potential causes:**
+    - Insufficient CPU or memory
+    - Too many players for allocated resources
+    - Large world size
+    - Heavy plugin/mod usage
+
+    **Solutions:**
+    - Increase resource limits
+    - Reduce render distance
+    - Remove unnecessary plugins
+    - Optimize world with tools
+  </Accordion>
+
+  <Accordion title="Lost server data">
+    **If you have backups:**
+    1. Go to **Backups** tab
+    2. Find the latest backup
+    3. Click **Restore**
+    4. Restart the server
+
+    **Prevention:**
+    - Enable automatic backups (recommended: daily)
+    - Set backup retention policy
+    - Periodically download important backups
+  </Accordion>
+</AccordionGroup>

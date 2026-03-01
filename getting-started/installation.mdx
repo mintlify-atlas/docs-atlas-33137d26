@@ -1,0 +1,202 @@
+---
+title: Installation
+description: Install StellarStack for development or production environments
+---
+
+<Warning>
+  **Alpha Software: Not Production Ready**
+  
+  StellarStack is in active development and should **NOT** be used in production environments. Expect breaking changes, incomplete features, and potential security vulnerabilities.
+</Warning>
+
+## Prerequisites
+
+Before installing StellarStack, ensure you have the following installed:
+
+- **Node.js** 20 or higher ([nodejs.org](https://nodejs.org/))
+- **pnpm** 10 or higher
+- **PostgreSQL** 15 or higher ([postgresql.org](https://postgresql.org/))
+- **Docker** (required for running game servers) ([docker.com](https://docker.com/))
+
+### Installing pnpm
+
+If you don't have pnpm installed, you can install it globally:
+
+<CodeGroup>
+
+```bash npm
+npm install -g pnpm
+```
+
+```bash yarn
+yarn global add pnpm
+```
+
+```bash corepack
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+</CodeGroup>
+
+## Development Installation
+
+For local development and testing, follow these steps:
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the StellarStack repository from GitHub:
+
+    ```bash
+    git clone https://github.com/StellarStackOSS/StellarStack.git
+    cd StellarStack
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all project dependencies using pnpm:
+
+    ```bash
+    pnpm install
+    ```
+
+    This will install dependencies for all packages in the monorepo.
+  </Step>
+
+  <Step title="Set up environment variables">
+    Copy the example environment files:
+
+    ```bash
+    cp apps/api/.env.example apps/api/.env
+    cp apps/web/.env.example apps/web/.env
+    ```
+
+    Edit the `.env` files with your configuration. At minimum, you need to configure:
+
+    **apps/api/.env:**
+    ```bash
+    DATABASE_URL="postgresql://stellar:stellarpass@localhost:5432/stellar"
+    ```
+
+    **apps/web/.env:**
+    ```bash
+    # Optional: Cloudflare Turnstile for CAPTCHA
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+    TURNSTILE_SECRET_KEY=
+    ```
+
+    <Note>
+      The `DATABASE_URL` should point to your PostgreSQL instance. Update the username, password, host, port, and database name as needed.
+    </Note>
+  </Step>
+
+  <Step title="Initialize the database">
+    Set up the database schema:
+
+    ```bash
+    cd apps/api
+    pnpm db:push
+    pnpm db:generate
+    cd ../..
+    ```
+
+    This creates the necessary tables and generates the Prisma client.
+  </Step>
+
+  <Step title="Start the development servers">
+    Start both the API and web panel in development mode:
+
+    ```bash
+    pnpm dev
+    ```
+
+    The services will be available at:
+    - **Web Panel:** http://localhost:3000
+    - **API Server:** http://localhost:3001
+  </Step>
+</Steps>
+
+## Production Installation (Ubuntu)
+
+For production deployments on Ubuntu 22.04 or higher, use the automated installer:
+
+<Steps>
+  <Step title="Run the installer script">
+    Execute the one-command installer:
+
+    ```bash
+    curl -sSL https://raw.githubusercontent.com/StellarStackOSS/StellarStack/master/install-script.sh | sudo bash
+    ```
+
+    The installer will:
+    - Install Docker and Docker Compose
+    - Set up PostgreSQL database
+    - Deploy API and web containers
+    - Configure nginx as a reverse proxy
+    - Optionally set up SSL via Certbot
+  </Step>
+
+  <Step title="Follow the installation prompts">
+    The installer will ask for:
+    - Installation type (panel + API, panel only, API only, or daemon)
+    - Domain names for the panel and API
+    - SSL certificate setup (recommended for production)
+    - Database credentials
+
+    <Note>
+      Write down the database credentials provided during installation. You'll need them for configuration.
+    </Note>
+  </Step>
+
+  <Step title="Verify the installation">
+    Once complete, the installer will display:
+    - URLs for accessing the panel and API
+    - Default admin credentials (if created)
+    - Installation directory (`/opt/stellarstack`)
+
+    Access your panel at the domain you configured during installation.
+  </Step>
+</Steps>
+
+## Docker Compose Installation
+
+For self-hosting with Docker Compose:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/StellarStackOSS/StellarStack.git
+    cd StellarStack
+    ```
+  </Step>
+
+  <Step title="Configure environment">
+    ```bash
+    cp .env.example .env
+    # Edit .env with your secrets and configuration
+    ```
+  </Step>
+
+  <Step title="Start services">
+    ```bash
+    docker-compose up -d
+    ```
+  </Step>
+
+  <Step title="Create admin user (optional)">
+    ```bash
+    docker exec stellarstack-api pnpm db:seed
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/getting-started/quick-start">
+    Get up and running with your first login
+  </Card>
+  <Card title="Configuration" icon="gear" href="/getting-started/configuration">
+    Learn about environment variables and settings
+  </Card>
+</CardGroup>

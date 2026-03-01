@@ -1,0 +1,327 @@
+---
+title: Daemon Setup
+description: Install and configure the Rust daemon on your nodes
+---
+
+The StellarStack daemon is a Rust-based service that runs on each physical or virtual machine (node) in your infrastructure. It manages Docker containers, handles server lifecycle operations, and communicates with the central API.
+
+## Architecture Overview
+
+The daemon implements a **daemon-per-node architecture**:
+
+- **API Server** (Hono + PostgreSQL) - Central control plane
+- **Web Panel** (Next.js 15) - Real-time dashboard
+- **Daemon Nodes** (Rust) - One per physical server, manages Docker containers
+- **Database** (PostgreSQL) - Single source of truth
+
+Each daemon:
+- Manages Docker containers for game servers
+- Provides SFTP access for file management
+- Streams real-time console output via WebSocket
+- Reports resource usage to the API
+- Handles backups and archives
+
+## Prerequisites
+
+Before installing the daemon:
+
+- **Docker** 20.10+ installed and running
+- **Rust** 1.70+ (for building from source)
+- **Linux** or **macOS** (Windows via WSL2)
+- Port **8080** available (configurable)
+- Port **2022** available for SFTP (configurable)
+
+## Installation
+
+### Option 1: Binary Release (Recommended)
+
+Download the pre-built binary for your platform:
+
+```bash
+curl -L https://github.com/StellarStackOSS/StellarStack/releases/latest/download/stellar-daemon-linux-amd64 -o stellar-daemon
+chmod +x stellar-daemon
+sudo mv stellar-daemon /usr/local/bin/
+```
+
+### Option 2: Build from Source
+
+Clone and build the daemon:
+
+```bash
+git clone https://github.com/StellarStackOSS/StellarStack.git
+cd StellarStack/apps/daemon
+cargo build --release
+sudo cp target/release/stellar-daemon /usr/local/bin/
+```
+
+## Configuration
+
+The daemon uses a TOML configuration file. Create `/etc/stellar-daemon/config.toml`:
+
+```toml
+# Enable debug logging
+debug = false
+
+[api]
+host = "0.0.0.0"
+port = 8080
+upload_limit = 100  # MB
+trusted_proxies = []
+
+[api.ssl]
+enabled = false
+cert = ""
+key = ""
+
+[system]
+root_directory = "/var/lib/stellar"
+data_directory = "/var/lib/stellar/volumes"
+backup_directory = "/var/lib/stellar/backups"
+archive_directory = "/var/lib/stellar/archives"
+tmp_directory = "/var/lib/stellar/tmp"
+log_directory = "/var/lib/stellar/logs"
+username = "stellar"
+timezone = "UTC"
+disk_check_interval = 60
+
+[system.user]
+uid = 1000
+gid = 1000
+
+[docker]
+# Auto-detected based on OS. Uncomment to override:
+# socket = "unix:///var/run/docker.sock"
+tmpfs_size = 100  # MB
+container_pid_limit = 512
+dns = ["1.1.1.1", "1.0.0.1"]
+
+[docker.network]
+name = "bridge"
+interface = "172.18.0.1"
+driver = "bridge"
+is_internal = false
+
+[docker.installer_limits]
+memory = 1024  # MB
+cpu = 100      # 100% = 1 core
+
+[docker.overhead]
+default = 0
+
+[remote]
+url = "https://api.stellarstack.app"
+token_id = "your-node-token-id"
+token = "your-node-token"
+timeout = 30
+boot_servers_per_page = 50
+
+[redis]
+enabled = true
+url = "redis://127.0.0.1:6379"
+prefix = "stellar"
+
+[sftp]
+enabled = true
+bind_address = "0.0.0.0"
+bind_port = 2022
+read_only = false
+host_key = "/var/lib/stellar/ssh_host_key"
+```
+
+### Configuration Reference
+
+#### API Section
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `host` | string | `0.0.0.0` | Address to bind HTTP server |
+| `port` | integer | `8080` | Port for API endpoints |
+| `upload_limit` | integer | `100` | Max upload size in MB |
+| `trusted_proxies` | array | `[]` | IP addresses of trusted reverse proxies |
+
+#### System Section
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `root_directory` | string | `.stellar` | Root data directory |
+| `data_directory` | string | `.stellar/volumes` | Server volume mounts |
+| `backup_directory` | string | `.stellar/backups` | Backup storage |
+| `archive_directory` | string | `.stellar/archives` | Transfer archives |
+| `tmp_directory` | string | `.stellar/tmp` | Temporary files |
+| `log_directory` | string | `.stellar/logs` | Daemon logs |
+| `username` | string | `stellar` | User for file ownership |
+| `timezone` | string | `UTC` | Timezone for scheduling |
+| `disk_check_interval` | integer | `60` | Disk usage check interval (seconds) |
+
+#### Docker Section
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `socket` | string | Auto-detected | Docker socket path |
+| `tmpfs_size` | integer | `100` | Tmpfs mount size in MB |
+| `container_pid_limit` | integer | `512` | Max processes per container |
+| `dns` | array | `["1.1.1.1", "1.0.0.1"]` | DNS servers for containers |
+
+#### Remote Section
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `url` | string | Yes | API server URL |
+| `token_id` | string | Yes | Node token ID from panel |
+| `token` | string | Yes | Node authentication token |
+| `timeout` | integer | No | Request timeout in seconds |
+
+## Running the Daemon
+
+### Manual Start
+
+Run the daemon with your config file:
+
+```bash
+stellar-daemon --config /etc/stellar-daemon/config.toml
+```
+
+Enable debug logging:
+
+```bash
+stellar-daemon --config /etc/stellar-daemon/config.toml --debug
+```
+
+### Systemd Service
+
+Create `/etc/systemd/system/stellar-daemon.service`:
+
+```ini
+[Unit]
+Description=StellarStack Daemon
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/stellar-daemon --config /etc/stellar-daemon/config.toml
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable stellar-daemon
+sudo systemctl start stellar-daemon
+sudo systemctl status stellar-daemon
+```
+
+## Node Registration
+
+Before the daemon can communicate with the panel:
+
+1. Navigate to **Admin** → **Nodes** in the panel
+2. Click **Create Node**
+3. Fill in node details:
+   - **Name**: Descriptive name (e.g., "US-East-1")
+   - **FQDN**: Daemon's public hostname
+   - **Port**: Daemon API port (default 8080)
+   - **Protocol**: HTTP or HTTPS
+   - **Location**: Logical grouping
+4. Copy the generated **Token ID** and **Token**
+5. Add them to your daemon's `config.toml` under `[remote]`
+6. Restart the daemon
+
+## Diagnostics
+
+Run the built-in diagnostics:
+
+```bash
+stellar-daemon diagnostics
+```
+
+This checks:
+- Docker connectivity
+- Network configuration
+- File permissions
+- API connectivity
+- Configuration validity
+
+## Troubleshooting
+
+### Daemon won't start
+
+**Check Docker socket permissions:**
+
+```bash
+sudo usermod -aG docker $USER
+# Log out and back in
+```
+
+**Verify Docker is running:**
+
+```bash
+docker ps
+```
+
+### Cannot connect to API
+
+**Test connectivity:**
+
+```bash
+curl https://api.stellarstack.app/health
+```
+
+**Check firewall rules:**
+
+```bash
+sudo ufw status
+sudo ufw allow 8080/tcp
+```
+
+### Containers not starting
+
+**Check Docker logs:**
+
+```bash
+docker logs <container-name>
+```
+
+**Verify resource limits:**
+
+Ensure your node has sufficient memory and CPU.
+
+## Security Considerations
+
+<Warning>
+  The daemon runs with elevated privileges to manage Docker. Always:
+  - Use firewall rules to restrict API access
+  - Enable SSL/TLS in production
+  - Keep the daemon binary updated
+  - Use strong authentication tokens
+</Warning>
+
+### Dropped Capabilities
+
+For security hardening, the daemon drops these Linux capabilities from containers:
+
+- `SETPCAP`, `MKNOD`, `AUDIT_WRITE`
+- `NET_RAW`, `DAC_OVERRIDE`, `FOWNER`
+- `SYS_ADMIN`, `SYS_MODULE`, `SYS_BOOT`
+- And 20+ more (see source code)
+
+This follows the principle of least privilege.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Configuration" icon="docker" href="/advanced/docker-configuration">
+    Deep dive into container settings
+  </Card>
+  <Card title="Custom Domains" icon="globe" href="/advanced/custom-domains">
+    Set up custom domains for servers
+  </Card>
+</CardGroup>

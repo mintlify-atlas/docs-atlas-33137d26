@@ -1,0 +1,434 @@
+---
+title: Subusers & Permissions
+description: Invite users to collaborate on servers with granular permission control
+---
+
+Subusers allow you to give other users access to your servers without sharing your account credentials. You can invite players, moderators, or administrators with precisely controlled permissions.
+
+## Understanding Subusers
+
+A subuser (also called a server member) is a user who has been granted access to one or more of your servers with specific permissions. This is different from server ownership:
+
+- **Owner** - Full control over the server, can delete it, and can manage subusers
+- **Subuser** - Limited access based on assigned permissions
+
+<Note>
+  Subusers are scoped per-server. A user can have different permissions on different servers.
+</Note>
+
+## Inviting Subusers
+
+<Steps>
+  <Step title="Navigate to Server Members">
+    Go to your server's settings and click on the "Members" or "Subusers" tab.
+  </Step>
+  
+  <Step title="Click Invite User">
+    Click the "Invite User" button to open the invitation dialog.
+  </Step>
+  
+  <Step title="Enter Email Address">
+    Enter the email address of the person you want to invite. They don't need an existing StellarStack account - they'll be prompted to create one when they accept.
+  </Step>
+  
+  <Step title="Select Permissions">
+    Choose the permissions you want to grant. You can use a preset role or customize individual permissions.
+    
+    <Tip>
+      Start with minimal permissions and add more as needed. It's easier to grant additional access than to revoke it.
+    </Tip>
+  </Step>
+  
+  <Step title="Send Invitation">
+    Click "Send Invitation". The user will receive an email with an invitation link.
+  </Step>
+</Steps>
+
+### Invitation Expiration
+
+Invitations expire after a set period (typically 7 days). If an invitation expires:
+
+1. The link in the email will no longer work
+2. You can resend the invitation from the server members page
+3. The new invitation will have the same permissions as the original
+
+## Permission System
+
+StellarStack uses a granular permission system with 45+ permission nodes. Permissions are organized into logical categories:
+
+### Console Permissions
+
+- `console.view` - View console output and logs
+- `console.send` - Send commands to the server console
+
+### Power Control Permissions
+
+- `power.start` - Start the server
+- `power.stop` - Stop the server  
+- `power.restart` - Restart the server
+- `power.kill` - Force-kill the server (use with caution)
+
+### File Management Permissions
+
+- `files.view` - Browse files and directories
+- `files.read` - Read file contents
+- `files.write` - Create and edit files
+- `files.delete` - Delete files and directories
+- `files.archive` - Create archives (zip, tar)
+- `files.upload` - Upload files via web interface
+- `files.download` - Download files
+
+### Backup Permissions
+
+- `backup.view` - View existing backups
+- `backup.create` - Create new backups
+- `backup.restore` - Restore from backups
+- `backup.delete` - Delete backups
+- `backup.download` - Download backup files
+
+### Database Permissions
+
+- `database.view` - View database list
+- `database.create` - Create new databases
+- `database.delete` - Delete databases
+- `database.manage` - Manage database users and permissions
+
+### Schedule Permissions
+
+- `schedule.view` - View scheduled tasks
+- `schedule.create` - Create new schedules
+- `schedule.edit` - Modify existing schedules
+- `schedule.delete` - Delete schedules
+
+### Allocation Permissions
+
+- `allocation.view` - View port allocations
+- `allocation.create` - Assign new ports (within limit)
+- `allocation.delete` - Remove port allocations
+
+### Settings Permissions
+
+- `settings.view` - View server settings
+- `settings.edit` - Modify server configuration
+- `settings.startup` - Edit startup command and variables
+- `settings.docker` - Change Docker image
+
+### Subuser Management Permissions
+
+- `subuser.view` - View list of subusers
+- `subuser.create` - Invite new subusers
+- `subuser.edit` - Modify subuser permissions
+- `subuser.delete` - Remove subusers
+
+### Activity Log Permissions
+
+- `activity.view` - View server activity logs
+
+<Warning>
+  The `subuser.create` permission allows users to invite others with equal or lesser permissions. Be careful who you grant this to.
+</Warning>
+
+## Permission Presets
+
+StellarStack includes common permission presets for typical use cases:
+
+### View Only
+
+Ideal for players who just need to check server status:
+
+- `console.view`
+- `files.view`
+- `files.read`
+- `backup.view`
+- `activity.view`
+
+### Moderator
+
+Suitable for trusted moderators who need operational control:
+
+- All "View Only" permissions
+- `console.send`
+- `power.start`
+- `power.stop`
+- `power.restart`
+- `backup.create`
+- `files.write`
+- `files.delete`
+- `files.upload`
+
+### Administrator
+
+Full access except for destructive actions:
+
+- All "Moderator" permissions
+- `settings.view`
+- `settings.edit`
+- `backup.restore`
+- `backup.delete`
+- `schedule.create`
+- `schedule.edit`
+- `allocation.create`
+- `subuser.view`
+- `subuser.create`
+
+### Custom
+
+Build your own permission set by selecting individual permissions.
+
+<Tip>
+  You can create custom presets by saving frequently used permission combinations. This makes it faster to invite new users with consistent permissions.
+</Tip>
+
+## Managing Existing Subusers
+
+### Viewing Subusers
+
+To see who has access to your server:
+
+1. Go to server settings
+2. Click the "Members" tab
+3. You'll see a list of all subusers with their:
+   - Name and email
+   - Permission level or role
+   - Date added
+   - Last login
+
+### Editing Permissions
+
+To modify a subuser's permissions:
+
+<Steps>
+  <Step title="Open Subuser Settings">
+    Click on the subuser in the members list.
+  </Step>
+  
+  <Step title="Modify Permissions">
+    Add or remove individual permissions, or switch to a different preset.
+  </Step>
+  
+  <Step title="Save Changes">
+    Click "Update Permissions". Changes take effect immediately.
+  </Step>
+</Steps>
+
+<Note>
+  Subusers who are currently logged in will see updated permissions on their next page load or action.
+</Note>
+
+### Removing Subusers
+
+To revoke access:
+
+1. Go to the members list
+2. Click "Remove" next to the subuser
+3. Confirm the removal
+
+The user will immediately lose access to the server. They'll still have their StellarStack account, but won't be able to see or interact with this server.
+
+## Accepting Invitations
+
+When you receive a subuser invitation:
+
+<Steps>
+  <Step title="Check Your Email">
+    Look for an email from your StellarStack instance with the subject "You've been invited to a server".
+  </Step>
+  
+  <Step title="Click the Invitation Link">
+    The email contains a unique link that's valid for a limited time.
+  </Step>
+  
+  <Step title="Create Account or Log In">
+    - If you don't have an account, you'll be prompted to create one
+    - If you already have an account, log in
+  </Step>
+  
+  <Step title="Accept Invitation">
+    Review the permissions you're being granted and click "Accept Invitation".
+  </Step>
+  
+  <Step title="Access the Server">
+    The server will now appear in your server list with your assigned permissions.
+  </Step>
+</Steps>
+
+### Declining Invitations
+
+If you don't want access to a server:
+
+1. Click the invitation link
+2. Click "Decline Invitation"
+3. The invitation will be marked as declined and the link will no longer work
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Minecraft Server Staff">
+    **Scenario**: You run a Minecraft server and need to give your moderators access to manage it.
+    
+    **Solution**: Invite moderators with the "Moderator" preset, which includes console access, power controls, and file management but not destructive permissions like server deletion.
+  </Accordion>
+  
+  <Accordion title="Development Teams">
+    **Scenario**: Multiple developers need to collaborate on a game server project.
+    
+    **Solution**: Invite developers with custom permissions including:
+    - Full file access for code editing
+    - Console access for debugging
+    - Schedule management for automated tasks
+    - Settings access for configuration changes
+  </Accordion>
+  
+  <Accordion title="Backup Operators">
+    **Scenario**: You want someone to handle backups without giving them access to modify server files.
+    
+    **Solution**: Create a custom role with only:
+    - `backup.view`
+    - `backup.create`
+    - `backup.restore`
+    - `console.view` (to verify restore success)
+  </Accordion>
+  
+  <Accordion title="Read-Only Auditors">
+    **Scenario**: Server sponsors or investors want visibility without operational access.
+    
+    **Solution**: Use the "View Only" preset to allow monitoring without any ability to make changes.
+  </Accordion>
+  
+  <Accordion title="Plugin Developers">
+    **Scenario**: A plugin developer needs access to test their work but shouldn't have full server control.
+    
+    **Solution**: Grant:
+    - File permissions to upload and modify plugin files
+    - Console access to view errors and logs
+    - Power restart to reload plugins
+    - No access to settings, backups, or other sensitive areas
+  </Accordion>
+</AccordionGroup>
+
+## Security Considerations
+
+### Principle of Least Privilege
+
+Always grant the minimum permissions necessary for a user to complete their tasks:
+
+- Start with the most restrictive preset
+- Add permissions incrementally as needed
+- Regularly audit and remove unused permissions
+
+### Dangerous Permissions
+
+Be especially careful with these permissions:
+
+- `subuser.create` - Allows creating new subusers with equal or lesser permissions
+- `settings.startup` - Can modify server startup parameters, potentially breaking the server
+- `files.delete` - Can delete critical server files
+- `backup.delete` - Can remove disaster recovery options
+- `power.kill` - Can corrupt server data if used improperly
+
+<Warning>
+  Never grant `subuser.create` to untrusted users. This permission allows them to invite others and could lead to unauthorized access.
+</Warning>
+
+### Audit Logging
+
+All subuser actions are logged in the activity log:
+
+- Command execution
+- File modifications
+- Power state changes
+- Permission changes
+- Subuser invitations
+
+Regularly review activity logs to detect unusual behavior:
+
+1. Go to server settings
+2. Click "Activity" tab
+3. Filter by user, action type, or date range
+
+### Regular Permission Audits
+
+Schedule quarterly reviews of subuser permissions:
+
+1. List all subusers on each server
+2. Verify each person still needs access
+3. Confirm their permission level is appropriate
+4. Remove inactive users
+5. Downgrade permissions where possible
+
+## Database Schema
+
+Subuser relationships are stored in the `server_members` table with these fields:
+
+```prisma
+model ServerMember {
+  id          String   @id @default(uuid())
+  serverId    String
+  userId      String
+  permissions String[] // Array of permission node strings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  server Server @relation(fields: [serverId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  
+  @@unique([serverId, userId])
+}
+```
+
+Invitations are tracked separately:
+
+```prisma
+model ServerInvitation {
+  id          String           @id @default(uuid())
+  serverId    String
+  inviterId   String
+  email       String
+  inviteeId   String?
+  permissions String[]         // Permissions to grant on acceptance
+  status      InvitationStatus @default(PENDING)
+  token       String           @unique @default(uuid())
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+```
+
+## API Integration
+
+Manage subusers programmatically via the REST API:
+
+### List Server Members
+
+```bash
+GET /api/servers/{serverId}/members
+```
+
+### Invite Subuser
+
+```bash
+POST /api/servers/{serverId}/members/invite
+{
+  "email": "user@example.com",
+  "permissions": ["console.view", "console.send", "power.restart"]
+}
+```
+
+### Update Permissions
+
+```bash
+PATCH /api/servers/{serverId}/members/{userId}
+{
+  "permissions": ["console.view", "console.send", "power.start", "power.stop"]
+}
+```
+
+### Remove Member
+
+```bash
+DELTE /api/servers/{serverId}/members/{userId}
+```
+
+<Tip>
+  Use the API to automate subuser management, such as syncing permissions from external systems or bulk-adding users.
+</Tip>

@@ -1,0 +1,579 @@
+---
+title: Analytics
+description: Retrieve system metrics and analytics data
+---
+
+<Note>All analytics endpoints require admin authentication.</Note>
+
+## Get System Metrics
+
+Fetch current system-wide metrics.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/analytics/system-metrics \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="totalServers" type="number">
+  Total number of servers
+</ResponseField>
+
+<ResponseField name="totalUsers" type="number">
+  Total number of users
+</ResponseField>
+
+<ResponseField name="activeConnections" type="number">
+  Active WebSocket connections
+</ResponseField>
+
+<ResponseField name="averageCpuUsage" type="number">
+  Average CPU usage percentage across all nodes
+</ResponseField>
+
+<ResponseField name="averageMemoryUsage" type="number">
+  Average memory usage percentage
+</ResponseField>
+
+<ResponseField name="averageDiskUsage" type="number">
+  Average disk usage percentage
+</ResponseField>
+
+<ResponseField name="uptime" type="number">
+  API uptime in seconds
+</ResponseField>
+
+<ResponseField name="totalNodes" type="number">
+  Total number of nodes
+</ResponseField>
+
+<ResponseField name="healthyNodes" type="number">
+  Number of healthy nodes (heartbeat within last 5 minutes)
+</ResponseField>
+
+---
+
+## Get Node Metrics
+
+Fetch node health and resource metrics.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/analytics/node-metrics \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+Returns an array of node metric objects.
+
+<ResponseField name="nodeId" type="string">
+  Node ID
+</ResponseField>
+
+<ResponseField name="nodeName" type="string">
+  Node display name
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Node status: "online" or "offline"
+</ResponseField>
+
+<ResponseField name="cpuUsage" type="number">
+  CPU usage percentage (0-100)
+</ResponseField>
+
+<ResponseField name="memoryUsage" type="number">
+  Memory used in bytes
+</ResponseField>
+
+<ResponseField name="memoryLimit" type="number">
+  Total memory in bytes
+</ResponseField>
+
+<ResponseField name="diskUsage" type="number">
+  Disk used in bytes
+</ResponseField>
+
+<ResponseField name="diskLimit" type="number">
+  Total disk in bytes
+</ResponseField>
+
+<ResponseField name="activeContainers" type="number">
+  Number of running containers
+</ResponseField>
+
+<ResponseField name="totalContainers" type="number">
+  Total containers on node
+</ResponseField>
+
+<ResponseField name="lastHeartbeat" type="number">
+  Unix timestamp of last heartbeat
+</ResponseField>
+
+<ResponseField name="uptime" type="number">
+  Node uptime in seconds
+</ResponseField>
+
+---
+
+## Get Server Metrics
+
+Fetch server resource metrics, optionally filtered by node.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/analytics/server-metrics?nodeId=node-id" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="nodeId" type="string">
+  Filter servers by node ID
+</ParamField>
+
+### Response
+
+Returns an array of server metric objects (limited to 50 servers).
+
+<ResponseField name="serverId" type="string">
+  Server ID
+</ResponseField>
+
+<ResponseField name="serverName" type="string">
+  Server name
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Server status: "running", "stopped", "installing", "suspended", "error"
+</ResponseField>
+
+<ResponseField name="cpuUsage" type="number">
+  CPU usage percentage
+</ResponseField>
+
+<ResponseField name="memoryUsage" type="number">
+  Memory used in bytes
+</ResponseField>
+
+<ResponseField name="memoryLimit" type="number">
+  Memory limit in bytes
+</ResponseField>
+
+<ResponseField name="diskUsage" type="number">
+  Disk used in bytes
+</ResponseField>
+
+<ResponseField name="diskLimit" type="number">
+  Disk limit in bytes
+</ResponseField>
+
+<ResponseField name="players" type="number" required={false}>
+  Number of connected players (game servers only)
+</ResponseField>
+
+<ResponseField name="fps" type="number" required={false}>
+  Frames per second (game servers only)
+</ResponseField>
+
+<ResponseField name="tps" type="number" required={false}>
+  Ticks per second (Minecraft servers only)
+</ResponseField>
+
+<ResponseField name="uptime" type="number">
+  Server uptime in seconds
+</ResponseField>
+
+<ResponseField name="lastUpdate" type="number">
+  Unix timestamp of last metrics update
+</ResponseField>
+
+---
+
+## Get CPU Time Series
+
+Fetch CPU usage time series data.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/analytics/cpu-series?timeRange=7d" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="timeRange" type="string" default="7d">
+  Time range: "24h", "7d", "30d", "90d", "1y"
+</ParamField>
+
+### Response
+
+<ResponseField name="dataPoints" type="array">
+  Time series data points
+  
+  <Expandable title="data point object">
+    <ResponseField name="timestamp" type="number">
+      Unix timestamp
+    </ResponseField>
+    <ResponseField name="value" type="number">
+      Average CPU usage percentage for this interval
+    </ResponseField>
+    <ResponseField name="label" type="string">
+      Human-readable timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="average" type="number">
+  Average CPU usage across all data points
+</ResponseField>
+
+<ResponseField name="min" type="number">
+  Minimum CPU usage
+</ResponseField>
+
+<ResponseField name="max" type="number">
+  Maximum CPU usage
+</ResponseField>
+
+<ResponseField name="peak" type="number">
+  Peak CPU usage (same as max)
+</ResponseField>
+
+---
+
+## Get Memory Time Series
+
+Fetch memory usage time series data.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/analytics/memory-series?timeRange=7d" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="timeRange" type="string" default="7d">
+  Time range: "24h", "7d", "30d", "90d", "1y"
+</ParamField>
+
+### Response
+
+Same format as CPU time series, with memory usage percentages.
+
+---
+
+## Get Disk Time Series
+
+Fetch disk usage time series data.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/analytics/disk-series?timeRange=7d" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="timeRange" type="string" default="7d">
+  Time range: "24h", "7d", "30d", "90d", "1y"
+</ParamField>
+
+### Response
+
+Same format as CPU time series, with disk usage percentages.
+
+---
+
+## Get Backup Storage Metrics
+
+Fetch backup storage metrics.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/analytics/backup-storage \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="totalBackupSize" type="number">
+  Total backup storage used in bytes
+</ResponseField>
+
+<ResponseField name="backupCount" type="number">
+  Total number of backups
+</ResponseField>
+
+<ResponseField name="averageBackupSize" type="number">
+  Average backup size in bytes
+</ResponseField>
+
+<ResponseField name="oldestBackup" type="number">
+  Unix timestamp of oldest backup
+</ResponseField>
+
+<ResponseField name="newestBackup" type="number">
+  Unix timestamp of newest backup
+</ResponseField>
+
+<ResponseField name="storageGrowthRate" type="number">
+  Storage growth rate (calculated from historical data)
+</ResponseField>
+
+<ResponseField name="estimatedCostPerMonth" type="number">
+  Estimated monthly cost in USD (at $0.02 per GB)
+</ResponseField>
+
+---
+
+## Get Blueprint Metrics
+
+Fetch blueprint usage analytics.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/analytics/blueprint-metrics \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+Returns an array of blueprint metric objects.
+
+<ResponseField name="blueprintId" type="string">
+  Blueprint ID
+</ResponseField>
+
+<ResponseField name="blueprintName" type="string">
+  Blueprint name
+</ResponseField>
+
+<ResponseField name="usageCount" type="number">
+  Number of servers using this blueprint
+</ResponseField>
+
+<ResponseField name="activeServers" type="number">
+  Number of running servers using this blueprint
+</ResponseField>
+
+<ResponseField name="category" type="string">
+  Blueprint category
+</ResponseField>
+
+<ResponseField name="popularity" type="number">
+  Popularity metric (same as usageCount)
+</ResponseField>
+
+---
+
+## Get API Metrics
+
+Fetch API usage metrics for the last 24 hours.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/analytics/api-metrics \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="totalRequests" type="number">
+  Total API requests in last 24 hours
+</ResponseField>
+
+<ResponseField name="requestsPerSecond" type="number">
+  Average requests per second
+</ResponseField>
+
+<ResponseField name="averageLatency" type="number">
+  Average response latency in milliseconds
+</ResponseField>
+
+<ResponseField name="errorRate" type="number">
+  Error rate percentage (0-100)
+</ResponseField>
+
+<ResponseField name="topEndpoints" type="array">
+  Top 5 most used endpoints
+  
+  <Expandable title="endpoint object">
+    <ResponseField name="endpoint" type="string">
+      API endpoint path
+    </ResponseField>
+    <ResponseField name="count" type="number">
+      Number of requests
+    </ResponseField>
+    <ResponseField name="avgLatency" type="number">
+      Average latency for this endpoint
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Get Webhook Metrics
+
+Fetch webhook delivery metrics for the last 7 days.
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.stellarstack.io/analytics/webhook-metrics \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Response
+
+<ResponseField name="totalWebhooks" type="number">
+  Total number of webhooks configured
+</ResponseField>
+
+<ResponseField name="totalDeliveries" type="number">
+  Total delivery attempts in last 7 days
+</ResponseField>
+
+<ResponseField name="successRate" type="number">
+  Success rate as decimal (0.0-1.0)
+</ResponseField>
+
+<ResponseField name="averageDeliveryTime" type="number">
+  Average delivery time in milliseconds
+</ResponseField>
+
+<ResponseField name="failedDeliveries" type="number">
+  Number of failed deliveries
+</ResponseField>
+
+---
+
+## Get Analytics Dashboard
+
+Fetch complete analytics dashboard data in a single request.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/analytics/dashboard?timeRange=7d" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="timeRange" type="string" default="7d">
+  Time range: "24h", "7d", "30d", "90d", "1y"
+</ParamField>
+
+### Response
+
+<ResponseField name="timeRange" type="string">
+  Time range used for this data
+</ResponseField>
+
+<ResponseField name="generatedAt" type="number">
+  Unix timestamp when data was generated
+</ResponseField>
+
+<ResponseField name="systemMetrics" type="object">
+  System-wide metrics (see Get System Metrics)
+</ResponseField>
+
+<ResponseField name="nodeMetrics" type="array">
+  Array of node metrics (see Get Node Metrics)
+</ResponseField>
+
+<ResponseField name="serverMetrics" type="array">
+  Array of server metrics (see Get Server Metrics)
+</ResponseField>
+
+<ResponseField name="userActivityMetrics" type="array">
+  User activity metrics
+</ResponseField>
+
+<ResponseField name="cpuTimeSeries" type="object">
+  CPU time series data (see Get CPU Time Series)
+</ResponseField>
+
+<ResponseField name="memoryTimeSeries" type="object">
+  Memory time series data (see Get Memory Time Series)
+</ResponseField>
+
+<ResponseField name="diskTimeSeries" type="object">
+  Disk time series data (see Get Disk Time Series)
+</ResponseField>
+
+<ResponseField name="backupStorageMetrics" type="object">
+  Backup storage metrics (see Get Backup Storage Metrics)
+</ResponseField>
+
+<ResponseField name="blueprintMetrics" type="array">
+  Blueprint usage metrics (see Get Blueprint Metrics)
+</ResponseField>
+
+<ResponseField name="apiMetrics" type="object">
+  API usage metrics (see Get API Metrics)
+</ResponseField>
+
+<ResponseField name="webhookMetrics" type="object">
+  Webhook metrics (see Get Webhook Metrics)
+</ResponseField>
+
+---
+
+## Export Analytics
+
+Export analytics data in CSV or JSON format.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api.stellarstack.io/analytics/export?timeRange=7d&format=csv" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -o analytics.csv
+```
+
+```bash JSON Export
+curl -X GET "https://api.stellarstack.io/analytics/export?timeRange=7d&format=json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -o analytics.json
+```
+</CodeGroup>
+
+### Query Parameters
+
+<ParamField query="timeRange" type="string" default="7d">
+  Time range: "24h", "7d", "30d", "90d", "1y"
+</ParamField>
+
+<ParamField query="format" type="string" default="json">
+  Export format: "csv" or "json"
+</ParamField>
+
+### Response
+
+**CSV Format:**
+- Content-Type: text/csv
+- Formatted CSV with sections for system metrics, node metrics, server metrics, backups, blueprints, API, and webhooks
+
+**JSON Format:**
+- Content-Type: application/json
+- Complete analytics dashboard data (same as Get Analytics Dashboard)
+
+**400 Bad Request** - Unsupported format
+
+<ResponseField name="error" type="string">
+  "Unsupported format. Supported formats: csv, json"
+</ResponseField>

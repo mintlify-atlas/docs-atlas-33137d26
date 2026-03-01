@@ -1,0 +1,833 @@
+---
+title: Plugin API Reference
+description: Complete API reference for StellarStack plugin development
+---
+
+# Plugin API Reference
+
+Complete reference for all types, interfaces, and APIs available in the StellarStack Plugin SDK.
+
+## Core Classes
+
+### StellarPlugin
+
+Base class that all plugins must extend.
+
+```typescript
+abstract class StellarPlugin {
+  abstract readonly manifest: PluginManifest;
+  abstract onEnable(context: PluginContext): Promise<void>;
+  abstract onDisable(context: PluginContext): Promise<void>;
+  
+  getRoutes?(): PluginRoute[];
+  onConfigUpdate?(
+    context: PluginContext,
+    oldConfig: Record<string, unknown>,
+    newConfig: Record<string, unknown>
+  ): Promise<void>;
+  validateConfig?(config: Record<string, unknown>): string | null;
+}
+```
+
+**Methods:**
+
+- `onEnable(context)` - Called when plugin is enabled (required)
+- `onDisable(context)` - Called when plugin is disabled (required)
+- `getRoutes()` - Return API routes for this plugin (optional)
+- `onConfigUpdate(context, oldConfig, newConfig)` - Called when config changes (optional)
+- `validateConfig(config)` - Validate configuration (optional)
+
+### PluginContext
+
+Provides access to the StellarStack API and plugin configuration.
+
+```typescript
+class PluginContext {
+  // Properties
+  readonly manifest: PluginManifest;
+  readonly pluginId: string;
+  readonly api: PluginAPI;
+  readonly config: Record<string, unknown>;
+  readonly log: Logger;
+  
+  // Methods
+  updateConfig(updates: Record<string, unknown>): void;
+  on(event: PluginHookEvent, handler: HookHandler, priority?: HookPriority): void;
+  addFilter(name: string, filter: HookFilter, priority?: HookPriority): void;
+}
+```
+
+**Properties:**
+
+- `manifest` - Plugin manifest object
+- `pluginId` - Plugin identifier string
+- `api` - PluginAPI instance for StellarStack operations
+- `config` - Current plugin configuration
+- `log` - Scoped logger instance
+
+**Methods:**
+
+- `updateConfig(updates)` - Update plugin configuration
+- `on(event, handler, priority)` - Register action hook
+- `addFilter(name, filter, priority)` - Register filter hook
+
+### HookRegistry
+
+Manages hook subscriptions and execution.
+
+```typescript
+class HookRegistry {
+  on(event: PluginHookEvent, pluginId: string, handler: HookHandler, priority?: HookPriority): void;
+  removePlugin(pluginId: string): void;
+  addFilter(name: string, pluginId: string, filter: HookFilter, priority?: HookPriority): void;
+  async emit(event: PluginHookEvent, context: Omit<HookContext, "event" | "timestamp">): Promise<void>;
+  async applyFilters<T>(name: string, value: T, context: Omit<HookContext, "event" | "timestamp">): Promise<T>;
+  getRegisteredHooks(): Record<string, string[]>;
+  hasHooks(event: PluginHookEvent): boolean;
+}
+```
+
+## Type Definitions
+
+### PluginManifest
+
+Defines plugin metadata and capabilities.
+
+```typescript
+interface PluginManifest {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  license?: string;
+  homepage?: string;
+  repository?: string;
+  icon?: string;
+  minVersion?: string;
+  category?: "game-management" | "modding" | "monitoring" | "automation" | "integration" | "security" | "utility" | "theme" | "other";
+  gameTypes?: string[];
+  permissions?: string[];
+  hooks?: string[];
+  ui?: PluginUIDefinition;
+  configSchema?: Record<string, unknown>;
+  defaultConfig?: Record<string, unknown>;
+  actions?: ExtensionAction[];
+}
+```
+
+### PluginStatus
+
+```typescript
+type PluginStatus = "installed" | "enabled" | "disabled" | "error" | "updating";
+```
+
+### PluginHookEvent
+
+All available hook events.
+
+```typescript
+type PluginHookEvent =
+  // Server lifecycle
+  | "server:beforeStart"
+  | "server:afterStart"
+  | "server:beforeStop"
+  | "server:afterStop"
+  | "server:beforeRestart"
+  | "server:afterRestart"
+  | "server:beforeInstall"
+  | "server:afterInstall"
+  | "server:statusChange"
+  | "server:created"
+  | "server:deleted"
+  // Console
+  | "server:console"
+  // File operations
+  | "server:file:beforeWrite"
+  | "server:file:afterWrite"
+  | "server:file:beforeDelete"
+  | "server:file:afterDelete"
+  // Backups
+  | "server:backup:beforeCreate"
+  | "server:backup:afterCreate"
+  | "server:backup:beforeRestore"
+  | "server:backup:afterRestore"
+  // Schedules
+  | "server:schedule:beforeExecute"
+  | "server:schedule:afterExecute"
+  // User actions
+  | "user:login"
+  | "user:created"
+  // Plugin lifecycle
+  | "plugin:enabled"
+  | "plugin:disabled"
+  | "plugin:configUpdated";
+```
+
+### HookContext
+
+Data passed to hook handlers.
+
+```typescript
+interface HookContext {
+  event: PluginHookEvent;
+  serverId?: string;
+  userId?: string;
+  data: Record<string, unknown>;
+  timestamp: Date;
+}
+```
+
+### HookHandler
+
+```typescript
+type HookHandler = (context: HookContext) => Promise<void> | void;
+```
+
+### HookFilter
+
+```typescript
+type HookFilter<T = unknown> = (value: T, context: HookContext) => Promise<T> | T;
+```
+
+### HookPriority
+
+```typescript
+type HookPriority = "low" | "normal" | "high" | "critical";
+```
+
+## Plugin API
+
+### PluginAPI Interface
+
+Main API interface for interacting with StellarStack.
+
+```typescript
+interface PluginAPI {
+  servers: ServerAPI;
+  files: FileAPI;
+  storage: StorageAPI;
+  http: HttpAPI;
+  log: Logger;
+  notify: NotificationAPI;
+}
+```
+
+### ServerAPI
+
+Server management operations.
+
+```typescript
+interface ServerAPI {
+  get(serverId: string): Promise<ServerInfo>;
+  list(): Promise<ServerInfo[]>;
+  sendCommand(serverId: string, command: string): Promise<void>;
+  getStatus(serverId: string): Promise<string>;
+}
+```
+
+**Methods:**
+
+#### get(serverId)
+
+Get server information by ID.
+
+```typescript
+const server = await context.api.servers.get("srv_abc123");
+console.log(server.name, server.status);
+```
+
+**Returns:** `Promise<ServerInfo>`
+
+#### list()
+
+List all servers (admin only in hooks).
+
+```typescript
+const servers = await context.api.servers.list();
+servers.forEach(s => console.log(s.name));
+```
+
+**Returns:** `Promise<ServerInfo[]>`
+
+#### sendCommand(serverId, command)
+
+Send a console command to a server.
+
+```typescript
+await context.api.servers.sendCommand(serverId, "say Hello world!");
+```
+
+**Parameters:**
+- `serverId` - Server ID
+- `command` - Console command string
+
+**Returns:** `Promise<void>`
+
+**Requires:** `console.send` permission
+
+#### getStatus(serverId)
+
+Get current server status.
+
+```typescript
+const status = await context.api.servers.getStatus(serverId);
+// Returns: "running" | "stopped" | "starting" | "stopping" | "crashed"
+```
+
+**Returns:** `Promise<string>`
+
+### FileAPI
+
+File system operations scoped to servers.
+
+```typescript
+interface FileAPI {
+  list(serverId: string, path?: string): Promise<FileInfo[]>;
+  read(serverId: string, path: string): Promise<string>;
+  write(serverId: string, path: string, content: string): Promise<void>;
+  create(serverId: string, path: string, type: "file" | "directory", content?: string): Promise<void>;
+  delete(serverId: string, path: string): Promise<void>;
+  downloadUrl(serverId: string, url: string, destPath: string): Promise<void>;
+}
+```
+
+**Methods:**
+
+#### list(serverId, path)
+
+List files in a directory.
+
+```typescript
+const files = await context.api.files.list(serverId, "plugins");
+files.forEach(f => console.log(f.name, f.size));
+```
+
+**Returns:** `Promise<FileInfo[]>`
+
+#### read(serverId, path)
+
+Read file contents.
+
+```typescript
+const config = await context.api.files.read(serverId, "server.properties");
+console.log(config);
+```
+
+**Returns:** `Promise<string>`
+
+#### write(serverId, path, content)
+
+Write content to a file.
+
+```typescript
+await context.api.files.write(
+  serverId,
+  "server.properties",
+  "motd=Welcome!\ndifficulty=hard"
+);
+```
+
+**Requires:** `files.*` permission
+
+#### create(serverId, path, type, content)
+
+Create a file or directory.
+
+```typescript
+await context.api.files.create(serverId, "backups", "directory");
+await context.api.files.create(serverId, "config.yml", "file", "enabled: true");
+```
+
+**Requires:** `files.*` permission
+
+#### delete(serverId, path)
+
+Delete a file or directory.
+
+```typescript
+await context.api.files.delete(serverId, "old-plugin.jar");
+```
+
+**Requires:** `files.*` permission
+
+#### downloadUrl(serverId, url, destPath)
+
+Download a file from URL to server.
+
+```typescript
+await context.api.files.downloadUrl(
+  serverId,
+  "https://example.com/plugin.jar",
+  "plugins/plugin.jar"
+);
+```
+
+**Requires:** `files.*` permission
+
+### StorageAPI
+
+Key-value storage scoped to your plugin.
+
+```typescript
+interface StorageAPI {
+  get<T = unknown>(key: string): Promise<T | null>;
+  set<T = unknown>(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<void>;
+  keys(): Promise<string[]>;
+}
+```
+
+**Methods:**
+
+#### get(key)
+
+Get a value from storage.
+
+```typescript
+const lastSync = await context.api.storage.get<number>("lastSync");
+if (lastSync === null) {
+  console.log("Never synced");
+}
+```
+
+**Returns:** `Promise<T | null>`
+
+#### set(key, value)
+
+Set a value in storage.
+
+```typescript
+await context.api.storage.set("lastSync", Date.now());
+await context.api.storage.set("config", { enabled: true });
+```
+
+**Returns:** `Promise<void>`
+
+#### delete(key)
+
+Delete a value from storage.
+
+```typescript
+await context.api.storage.delete("lastSync");
+```
+
+**Returns:** `Promise<void>`
+
+#### keys()
+
+List all storage keys.
+
+```typescript
+const keys = await context.api.storage.keys();
+console.log("Stored keys:", keys);
+```
+
+**Returns:** `Promise<string[]>`
+
+### HttpAPI
+
+HTTP client for external API calls.
+
+```typescript
+interface HttpAPI {
+  get<T = unknown>(url: string, headers?: Record<string, string>): Promise<T>;
+  post<T = unknown>(url: string, body?: unknown, headers?: Record<string, string>): Promise<T>;
+  put<T = unknown>(url: string, body?: unknown, headers?: Record<string, string>): Promise<T>;
+  delete<T = unknown>(url: string, headers?: Record<string, string>): Promise<T>;
+}
+```
+
+**Methods:**
+
+#### get(url, headers)
+
+Make a GET request.
+
+```typescript
+interface ApiResponse {
+  version: string;
+  downloads: number;
+}
+
+const data = await context.api.http.get<ApiResponse>(
+  "https://api.example.com/mod/123",
+  { "X-API-Key": apiKey }
+);
+
+console.log(data.version);
+```
+
+**Returns:** `Promise<T>`
+
+#### post(url, body, headers)
+
+Make a POST request.
+
+```typescript
+const result = await context.api.http.post(
+  "https://api.example.com/install",
+  { modId: 123, serverId: "srv_abc" },
+  { "Content-Type": "application/json" }
+);
+```
+
+**Returns:** `Promise<T>`
+
+#### put(url, body, headers)
+
+Make a PUT request.
+
+```typescript
+await context.api.http.put(
+  "https://api.example.com/config",
+  { enabled: true }
+);
+```
+
+**Returns:** `Promise<T>`
+
+#### delete(url, headers)
+
+Make a DELETE request.
+
+```typescript
+await context.api.http.delete(
+  "https://api.example.com/mod/123",
+  { "X-API-Key": apiKey }
+);
+```
+
+**Returns:** `Promise<T>`
+
+### Logger
+
+Scoped logger for plugin output.
+
+```typescript
+interface Logger {
+  info(message: string, ...args: unknown[]): void;
+  warn(message: string, ...args: unknown[]): void;
+  error(message: string, ...args: unknown[]): void;
+  debug(message: string, ...args: unknown[]): void;
+}
+```
+
+**Methods:**
+
+```typescript
+context.log.info("Server started", { serverId });
+context.log.warn("Deprecated API used");
+context.log.error("Failed to connect", error);
+context.log.debug("Verbose debug info"); // Only in development
+```
+
+### NotificationAPI
+
+Send notifications to connected clients.
+
+```typescript
+interface NotificationAPI {
+  toast(serverId: string, message: string, type?: "success" | "error" | "warning" | "info"): void;
+}
+```
+
+**Methods:**
+
+#### toast(serverId, message, type)
+
+Send a toast notification.
+
+```typescript
+context.api.notify.toast(serverId, "Backup completed!", "success");
+context.api.notify.toast(serverId, "Failed to start", "error");
+context.api.notify.toast(serverId, "Server restarting...", "info");
+```
+
+## Data Types
+
+### ServerInfo
+
+```typescript
+interface ServerInfo {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  memory: number;
+  disk: number;
+  cpu: number;
+  nodeId: string;
+  blueprintId: string;
+  ownerId: string;
+  blueprint?: {
+    id: string;
+    name: string;
+    category?: string;
+  };
+}
+```
+
+### FileInfo
+
+```typescript
+interface FileInfo {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number;
+  modified: string;
+}
+```
+
+## Extension Actions
+
+### ExtensionAction
+
+Defines an executable action.
+
+```typescript
+interface ExtensionAction {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  dangerous?: boolean;
+  params?: ExtensionActionParam[];
+  operations: ExtensionOperation[];
+}
+```
+
+### ExtensionActionParam
+
+```typescript
+interface ExtensionActionParam {
+  id: string;
+  label: string;
+  description?: string;
+  type: "string" | "number" | "boolean" | "select";
+  required?: boolean;
+  default?: string | number | boolean;
+  options?: Array<{ label: string; value: string }>;
+}
+```
+
+### ExtensionOperation
+
+Operations that can be executed.
+
+```typescript
+type ExtensionOperation =
+  | { type: "download-to-server"; url: string; directory: string; filename?: string; decompress?: boolean }
+  | { type: "write-file"; path: string; content: string }
+  | { type: "delete-file"; path: string }
+  | { type: "send-command"; command: string }
+  | { type: "restart-server" }
+  | { type: "stop-server" }
+  | { type: "start-server" }
+  | { type: "create-backup"; name?: string };
+```
+
+## UI Types
+
+### UI Component Props
+
+#### ServerTabProps
+
+```typescript
+interface ServerTabProps {
+  serverId: string;
+  server: ServerInfo;
+  pluginConfig: Record<string, unknown>;
+}
+```
+
+#### ServerWidgetProps
+
+```typescript
+interface ServerWidgetProps {
+  serverId: string;
+  server: ServerInfo;
+  pluginConfig: Record<string, unknown>;
+}
+```
+
+#### AdminPageProps
+
+```typescript
+interface AdminPageProps {
+  pluginConfig: Record<string, unknown>;
+}
+```
+
+#### SettingsPanelProps
+
+```typescript
+interface SettingsPanelProps {
+  config: Record<string, unknown>;
+  onConfigChange: (config: Record<string, unknown>) => void;
+}
+```
+
+### UI Schema Types
+
+See [Plugin UI Documentation](/development/plugin-ui) for complete UI schema reference.
+
+## Permission Reference
+
+### Available Permissions
+
+```typescript
+const permissions = [
+  "files.*",           // All file operations
+  "files.read",        // Read files
+  "files.write",       // Write/create files
+  "files.delete",      // Delete files
+  "console.send",      // Send console commands
+  "console.read",      // Read console output
+  "control.*",         // All server control
+  "control.start",     // Start servers
+  "control.stop",      // Stop servers
+  "control.restart",   // Restart servers
+  "backups.create",    // Create backups
+  "backups.restore",   // Restore backups
+  "backups.delete",    // Delete backups
+  "activity.read",     // Read activity logs
+  "users.read",        // Read user data
+  "users.write",       // Modify user data
+  "admin.*",           // Admin access (dangerous)
+];
+```
+
+## Error Handling
+
+### Common Errors
+
+```typescript
+try {
+  await context.api.servers.sendCommand(serverId, "say Hello");
+} catch (error) {
+  if (error.message.includes("permission")) {
+    context.log.error("Missing permission: console.send");
+  } else if (error.message.includes("not found")) {
+    context.log.error("Server not found");
+  } else {
+    context.log.error("Unknown error", error);
+  }
+}
+```
+
+## Complete Example
+
+```typescript
+import { StellarPlugin, PluginContext } from "@stellarstack/plugin-sdk";
+
+export default class BackupScheduler extends StellarPlugin {
+  private intervals = new Map<string, NodeJS.Timeout>();
+
+  manifest = {
+    id: "backup-scheduler",
+    name: "Backup Scheduler",
+    version: "1.0.0",
+    description: "Automatically create server backups on a schedule",
+    author: "StellarStack",
+    category: "automation" as const,
+    permissions: ["backups.create", "console.send"],
+    configSchema: {
+      type: "object",
+      properties: {
+        intervalHours: {
+          type: "number",
+          title: "Backup Interval (hours)",
+          minimum: 1,
+          maximum: 168,
+          default: 24,
+        },
+        warnPlayers: {
+          type: "boolean",
+          title: "Warn Players",
+          default: true,
+        },
+      },
+    },
+    defaultConfig: {
+      intervalHours: 24,
+      warnPlayers: true,
+    },
+  };
+
+  async onEnable(context: PluginContext): Promise<void> {
+    context.log.info("Backup scheduler enabled");
+
+    // Start backup schedule for all servers
+    const servers = await context.api.servers.list();
+    servers.forEach(server => {
+      this.scheduleBackup(context, server.id);
+    });
+
+    // Schedule backups for newly created servers
+    context.on("server:created", async (ctx) => {
+      this.scheduleBackup(context, ctx.serverId!);
+    });
+
+    // Clean up schedule when server is deleted
+    context.on("server:deleted", async (ctx) => {
+      const interval = this.intervals.get(ctx.serverId!);
+      if (interval) {
+        clearInterval(interval);
+        this.intervals.delete(ctx.serverId!);
+      }
+    });
+  }
+
+  async onDisable(context: PluginContext): Promise<void> {
+    // Stop all backup schedules
+    this.intervals.forEach(interval => clearInterval(interval));
+    this.intervals.clear();
+    context.log.info("Backup scheduler disabled");
+  }
+
+  private scheduleBackup(context: PluginContext, serverId: string): void {
+    const hours = context.config.intervalHours as number;
+    const interval = setInterval(async () => {
+      await this.createBackup(context, serverId);
+    }, hours * 60 * 60 * 1000);
+
+    this.intervals.set(serverId, interval);
+    context.log.info(`Scheduled backups every ${hours}h for ${serverId}`);
+  }
+
+  private async createBackup(context: PluginContext, serverId: string): Promise<void> {
+    try {
+      const warnPlayers = context.config.warnPlayers as boolean;
+
+      if (warnPlayers) {
+        await context.api.servers.sendCommand(
+          serverId,
+          "say Creating backup in 10 seconds..."
+        );
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+
+      const timestamp = new Date().toISOString().split("T")[0];
+      const backupName = `auto-${timestamp}-${Date.now()}`;
+
+      // Create backup through action execution would happen here
+      // For now just log
+      context.log.info(`Created backup: ${backupName}`);
+
+      if (warnPlayers) {
+        await context.api.servers.sendCommand(
+          serverId,
+          "say Backup complete!"
+        );
+      }
+
+      await context.api.notify.toast(serverId, "Backup created", "success");
+    } catch (error) {
+      context.log.error(`Backup failed for ${serverId}`, error);
+      await context.api.notify.toast(serverId, "Backup failed", "error");
+    }
+  }
+}
+```

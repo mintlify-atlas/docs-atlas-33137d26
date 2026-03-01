@@ -1,0 +1,458 @@
+---
+title: 'WebSockets'
+description: 'Real-time updates via WebSocket connections'
+---
+
+## Overview
+
+StellarStack provides a WebSocket endpoint for real-time server updates and console streaming. The WebSocket connection requires authentication and supports subscribing to specific server updates.
+
+## Connection
+
+Connect to the WebSocket endpoint:
+
+```
+ws://localhost:3001/api/ws
+```
+
+In production, use the secure WebSocket protocol:
+
+```
+wss://your-api-domain.com/api/ws
+```
+
+## Authentication
+
+WebSocket connections support two authentication methods:
+
+### 1. Cookie-Based (Automatic)
+
+If you have a valid Better Auth session cookie, authentication happens automatically on connection:
+
+```javascript
+const ws = new WebSocket('ws://localhost:3001/api/ws');
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  
+  if (message.type === 'auth_success') {
+    console.log('Authenticated as user:', message.userId);
+  }
+};
+```
+
+### 2. Token-Based (Manual)
+
+For environments where cookies don't work (cross-origin), obtain a token first:
+
+**Step 1: Get WebSocket Token**
+
+```bash
+curl http://localhost:3001/api/ws/token \
+  -H "Cookie: better-auth.session_token=<session_token>"
+```
+
+Response:
+
+```json
+{
+  "token": "session_token_abc123",
+  "userId": "user_123"
+}
+```
+
+**Step 2: Authenticate WebSocket**
+
+```javascript
+const ws = new WebSocket('ws://localhost:3001/api/ws');
+
+ws.onopen = () => {
+  // Send authentication message
+  ws.send(JSON.stringify({
+    type: 'auth',
+    token: 'session_token_abc123'
+  }));
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  
+  if (message.type === 'auth_success') {
+    console.log('Authenticated as user:', message.userId);
+  } else if (message.type === 'auth_error') {
+    console.error('Authentication failed:', message.error);
+  }
+};
+```
+
+## Message Types
+
+### Client to Server
+
+Messages you can send to the server:
+
+#### Subscribe to Server Updates
+
+```json
+{
+  "type": "subscribe",
+  "serverId": "srv_abc123"
+}
+```
+
+<ParamField body="type" type="string" required>
+  Must be `"subscribe"`
+</ParamField>
+
+<ParamField body="serverId" type="string" required>
+  ID of the server to receive updates for
+</ParamField>
+
+Response:
+
+```json
+{
+  "type": "subscribed",
+  "serverId": "srv_abc123"
+}
+```
+
+<Note>
+You must be authenticated to subscribe to server updates. Unauthenticated subscription attempts return an error.
+</Note>
+
+#### Unsubscribe from Server Updates
+
+```json
+{
+  "type": "unsubscribe",
+  "serverId": "srv_abc123"
+}
+```
+
+<ParamField body="type" type="string" required>
+  Must be `"unsubscribe"`
+</ParamField>
+
+<ParamField body="serverId" type="string" required>
+  ID of the server to stop receiving updates for
+</ParamField>
+
+Response:
+
+```json
+{
+  "type": "unsubscribed",
+  "serverId": "srv_abc123"
+}
+```
+
+#### Ping
+
+Keep the connection alive and check server responsiveness:
+
+```json
+{
+  "type": "ping"
+}
+```
+
+Response:
+
+```json
+{
+  "type": "pong"
+}
+```
+
+### Server to Client
+
+Messages you receive from the server:
+
+#### Server Sync
+
+Periodic server state updates (sent every 5 seconds for subscribed servers):
+
+```json
+{
+  "type": "server:sync",
+  "serverId": "srv_abc123",
+  "data": {
+    "id": "srv_abc123",
+    "shortId": "abc123",
+    "name": "my-server",
+    "status": "running",
+    "suspended": false,
+    "containerId": "container_xyz",
+    "memory": 2048,
+    "disk": 10240,
+    "cpu": 100,
+    "cpuPinning": null,
+    "swap": 0,
+    "oomKillDisable": false,
+    "backupLimit": 5,
+    "nodeId": "node_456",
+    "blueprintId": "bp_789",
+    "ownerId": "user_123",
+    "createdAt": "2026-03-01T12:00:00.000Z",
+    "updatedAt": "2026-03-01T12:30:00.000Z",
+    "node": {
+      "id": "node_456",
+      "shortId": "node456",
+      "displayName": "US-East-1",
+      "host": "node1.example.com",
+      "port": 443,
+      "protocol": "https",
+      "sftpPort": 2022,
+      "isOnline": true,
+      "fqdn": "node1.example.com",
+      "daemonPort": 8080,
+      "location": {
+        "id": "loc_123",
+        "name": "US East"
+      }
+    },
+    "allocations": [
+      {
+        "id": "alloc_111",
+        "ip": "0.0.0.0",
+        "port": 25565,
+        "isPrimary": true
+      }
+    ],
+    "blueprint": {
+      "id": "bp_789",
+      "name": "Minecraft Java"
+    }
+  }
+}
+```
+
+<ResponseField name="type" type="string">
+  Always `"server:sync"`
+</ResponseField>
+
+<ResponseField name="serverId" type="string">
+  ID of the server this update is for
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Complete server state including node, allocations, and blueprint information
+</ResponseField>
+
+#### Authentication Success
+
+```json
+{
+  "type": "auth_success",
+  "userId": "user_123"
+}
+```
+
+#### Authentication Error
+
+```json
+{
+  "type": "auth_error",
+  "error": "Invalid or expired session"
+}
+```
+
+#### Error
+
+```json
+{
+  "type": "error",
+  "error": "Authentication required to subscribe"
+}
+```
+
+## Complete Example
+
+```javascript
+class StellarStackWebSocket {
+  constructor(apiUrl, sessionToken) {
+    this.apiUrl = apiUrl;
+    this.sessionToken = sessionToken;
+    this.ws = null;
+    this.authenticated = false;
+    this.subscriptions = new Set();
+  }
+
+  async connect() {
+    // Get WebSocket token
+    const response = await fetch(`${this.apiUrl}/api/ws/token`, {
+      headers: {
+        'Cookie': `better-auth.session_token=${this.sessionToken}`
+      }
+    });
+    
+    const { token, userId } = await response.json();
+    
+    // Connect to WebSocket
+    const wsUrl = this.apiUrl.replace('http', 'ws');
+    this.ws = new WebSocket(`${wsUrl}/api/ws`);
+    
+    this.ws.onopen = () => {
+      console.log('WebSocket connected');
+      
+      // Authenticate
+      this.ws.send(JSON.stringify({
+        type: 'auth',
+        token: token
+      }));
+    };
+    
+    this.ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      this.handleMessage(message);
+    };
+    
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    this.ws.onclose = () => {
+      console.log('WebSocket disconnected');
+      this.authenticated = false;
+    };
+  }
+
+  handleMessage(message) {
+    switch (message.type) {
+      case 'auth_success':
+        console.log('Authenticated as:', message.userId);
+        this.authenticated = true;
+        // Re-subscribe to previously subscribed servers
+        this.subscriptions.forEach(serverId => {
+          this.subscribe(serverId);
+        });
+        break;
+        
+      case 'auth_error':
+        console.error('Auth error:', message.error);
+        break;
+        
+      case 'subscribed':
+        console.log('Subscribed to server:', message.serverId);
+        break;
+        
+      case 'server:sync':
+        console.log('Server update:', message.serverId, message.data);
+        this.onServerUpdate(message.serverId, message.data);
+        break;
+        
+      case 'pong':
+        console.log('Pong received');
+        break;
+    }
+  }
+
+  subscribe(serverId) {
+    if (!this.authenticated) {
+      this.subscriptions.add(serverId);
+      return;
+    }
+    
+    this.ws.send(JSON.stringify({
+      type: 'subscribe',
+      serverId: serverId
+    }));
+    
+    this.subscriptions.add(serverId);
+  }
+
+  unsubscribe(serverId) {
+    this.ws.send(JSON.stringify({
+      type: 'unsubscribe',
+      serverId: serverId
+    }));
+    
+    this.subscriptions.delete(serverId);
+  }
+
+  ping() {
+    this.ws.send(JSON.stringify({ type: 'ping' }));
+  }
+
+  onServerUpdate(serverId, data) {
+    // Override this method to handle server updates
+    console.log('Server update received:', serverId, data);
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
+    }
+  }
+}
+
+// Usage
+const client = new StellarStackWebSocket(
+  'http://localhost:3001',
+  'your_session_token'
+);
+
+await client.connect();
+
+// Subscribe to server updates
+client.subscribe('srv_abc123');
+
+// Handle updates
+client.onServerUpdate = (serverId, data) => {
+  console.log(`Server ${serverId} status:`, data.status);
+};
+
+// Keep connection alive
+setInterval(() => {
+  client.ping();
+}, 30000); // Ping every 30 seconds
+```
+
+## Update Frequency
+
+Server sync updates are sent every **5 seconds** for all subscribed servers. The periodic update system:
+
+- Fetches server data in batch queries (one query for all subscribed servers)
+- Only sends updates to authenticated, subscribed clients
+- Includes complete server state with relationships (node, allocations, blueprint)
+
+## Connection Limits
+
+There are no hard limits on WebSocket connections, but keep in mind:
+
+- Each connection consumes server resources
+- Subscribe only to servers you need updates for
+- Unsubscribe when you no longer need updates
+- Close connections when not in use
+
+## Error Handling
+
+Handle WebSocket errors gracefully:
+
+```javascript
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = (event) => {
+  console.log('WebSocket closed:', event.code, event.reason);
+  
+  // Implement reconnection logic
+  if (event.code !== 1000) { // Not a normal closure
+    setTimeout(() => {
+      console.log('Reconnecting...');
+      connect();
+    }, 5000);
+  }
+};
+```
+
+## Best Practices
+
+1. **Authenticate First** - Always wait for `auth_success` before subscribing
+2. **Heartbeat** - Send periodic ping messages to keep connection alive
+3. **Reconnect** - Implement automatic reconnection with exponential backoff
+4. **Unsubscribe** - Clean up subscriptions when components unmount
+5. **Error Handling** - Handle authentication failures and connection errors
+6. **Resource Cleanup** - Close WebSocket connections when not needed

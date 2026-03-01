@@ -1,0 +1,292 @@
+---
+title: Authentication
+description: Set up user authentication with email/password, two-factor authentication, and passkeys
+---
+
+StellarStack uses Better Auth to provide secure, flexible authentication for your panel. Users can sign up with email and password, enable two-factor authentication for added security, and use passkeys for passwordless login.
+
+## Email and Password Authentication
+
+The default authentication method uses email and password with bcrypt hashing (cost factor 10) for secure password storage.
+
+### Sign Up
+
+New users can create accounts through the registration page:
+
+<Steps>
+  <Step title="Navigate to Sign Up">
+    Go to `/signup` on your StellarStack instance.
+  </Step>
+  
+  <Step title="Enter Account Details">
+    Provide your name, email address, and a strong password.
+  </Step>
+  
+  <Step title="Verify Email (Production Only)">
+    In production environments, you'll receive a verification email. Click the link to activate your account.
+    
+    <Note>
+      Email verification is disabled in development mode for easier testing.
+    </Note>
+  </Step>
+</Steps>
+
+### Password Requirements
+
+Passwords are hashed using bcrypt with industry-standard security settings. While there are no enforced complexity requirements at the authentication layer, we recommend:
+
+- Minimum 12 characters
+- Mix of uppercase and lowercase letters
+- At least one number
+- At least one special character
+
+### Password Reset
+
+If you forget your password:
+
+<Steps>
+  <Step title="Request Reset">
+    Click "Forgot Password" on the login page and enter your email address.
+  </Step>
+  
+  <Step title="Check Email">
+    You'll receive an email with a password reset link.
+  </Step>
+  
+  <Step title="Set New Password">
+    Click the link and enter your new password.
+  </Step>
+</Steps>
+
+<Warning>
+  Password reset links expire after a set period. If your link has expired, request a new one.
+</Warning>
+
+## Two-Factor Authentication (2FA)
+
+Two-factor authentication adds an extra layer of security by requiring a time-based one-time password (TOTP) in addition to your regular password.
+
+### Enabling 2FA
+
+<Steps>
+  <Step title="Access Account Settings">
+    Navigate to your account settings page.
+  </Step>
+  
+  <Step title="Enable Two-Factor Authentication">
+    Click "Enable 2FA" and scan the QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.).
+  </Step>
+  
+  <Step title="Save Backup Codes">
+    Store your backup codes in a secure location. You'll need these if you lose access to your authenticator app.
+    
+    <Warning>
+      Backup codes can only be used once. Keep them safe and secure.
+    </Warning>
+  </Step>
+  
+  <Step title="Verify Setup">
+    Enter a code from your authenticator app to confirm 2FA is working correctly.
+  </Step>
+</Steps>
+
+### Email-Based OTP
+
+In addition to TOTP codes from authenticator apps, StellarStack can send one-time passwords via email. This provides a fallback authentication method or can be used as the primary 2FA method.
+
+When you log in with 2FA enabled, you'll receive an email with a verification code. Enter this code to complete the login process.
+
+### Disabling 2FA
+
+To disable two-factor authentication:
+
+1. Go to account settings
+2. Enter your password to confirm
+3. Click "Disable 2FA"
+
+<Note>
+  You'll need to enter a current 2FA code or use a backup code to disable 2FA.
+</Note>
+
+## Passkeys (WebAuthn)
+
+Passkeys provide passwordless authentication using biometrics, security keys, or device authentication. This is the most secure and convenient authentication method.
+
+### What Are Passkeys?
+
+Passkeys use public-key cryptography and are:
+
+- **Phishing-resistant** - Only work on your registered domain
+- **Device-bound** - Private keys never leave your device
+- **Convenient** - Use Face ID, Touch ID, Windows Hello, or hardware keys
+- **Fast** - Login in seconds without typing passwords
+
+### Registering a Passkey
+
+<Steps>
+  <Step title="Go to Security Settings">
+    Navigate to your account security settings.
+  </Step>
+  
+  <Step title="Add Passkey">
+    Click "Add Passkey" and give it a descriptive name (e.g., "MacBook Pro", "YubiKey 5C").
+  </Step>
+  
+  <Step title="Authenticate">
+    Follow your device's prompts to create the passkey:
+    - **Mobile**: Use Face ID or fingerprint
+    - **Desktop**: Use Windows Hello, Touch ID, or a security key
+    - **Hardware Key**: Insert and tap your YubiKey or other FIDO2 device
+  </Step>
+  
+  <Step title="Confirm Creation">
+    Your passkey is now registered and ready to use.
+  </Step>
+</Steps>
+
+### Using Passkeys to Log In
+
+1. Go to the login page
+2. Click "Sign in with Passkey"
+3. Select your device or security key
+4. Authenticate using your biometric or PIN
+
+### Managing Passkeys
+
+You can register multiple passkeys for different devices:
+
+- **Primary device** - Your main computer or phone
+- **Backup device** - Secondary phone or tablet
+- **Hardware key** - YubiKey or other FIDO2 security key
+
+<Tip>
+  Register at least two passkeys to ensure you don't lose access if one device fails.
+</Tip>
+
+To remove a passkey:
+
+1. Go to security settings
+2. Find the passkey in your list
+3. Click "Remove" and confirm
+
+### Passkey Configuration
+
+Passkeys require proper configuration in your environment variables:
+
+```bash
+PASSKEY_RP_ID=yourdomain.com        # Your domain (no protocol)
+FRONTEND_URL=https://yourdomain.com  # Full frontend URL
+```
+
+<Warning>
+  Passkeys are domain-specific. Changing your `PASSKEY_RP_ID` will invalidate all existing passkeys.
+</Warning>
+
+## Session Management
+
+Sessions are managed securely with the following features:
+
+### Session Duration
+
+- Sessions remain active for a configurable period (default: 7 days)
+- Sessions automatically expire after inactivity
+- You can manually log out to end your session immediately
+
+### Active Sessions
+
+View all active sessions in your account settings:
+
+- Device type and browser information
+- IP address and approximate location
+- Last activity timestamp
+
+### Revoking Sessions
+
+You can revoke individual sessions or log out from all devices:
+
+1. Go to account settings
+2. Navigate to "Active Sessions"
+3. Click "Revoke" next to any session
+4. Or click "Revoke All Sessions" to log out everywhere
+
+<Tip>
+  If you suspect unauthorized access, immediately revoke all sessions and change your password.
+</Tip>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Strong, Unique Passwords">
+    Never reuse passwords across services. Use a password manager to generate and store unique passwords for each account.
+  </Accordion>
+  
+  <Accordion title="Enable Two-Factor Authentication">
+    2FA prevents unauthorized access even if your password is compromised. Enable it on your StellarStack account and any OAuth providers you use.
+  </Accordion>
+  
+  <Accordion title="Register Multiple Passkeys">
+    Don't rely on a single device. Register passkeys on at least two devices or include a hardware security key as a backup.
+  </Accordion>
+  
+  <Accordion title="Review Active Sessions Regularly">
+    Check your active sessions monthly and revoke any you don't recognize. This helps detect unauthorized access early.
+  </Accordion>
+  
+  <Accordion title="Keep Backup Codes Secure">
+    Store 2FA backup codes in a secure location like a password manager or encrypted file. Don't store them in plain text on your computer.
+  </Accordion>
+  
+  <Accordion title="Use OAuth for Convenience">
+    OAuth providers like Google and GitHub offer strong security with minimal effort. They handle 2FA and security monitoring for you.
+  </Accordion>
+</AccordionGroup>
+
+## Account Security Features
+
+### Email Verification
+
+In production environments, email verification is required before accessing the panel. This ensures:
+
+- The email address is valid and accessible
+- You can receive security notifications
+- Password reset functionality works correctly
+
+### Account Lockout
+
+After multiple failed login attempts, accounts are temporarily locked to prevent brute-force attacks. Contact your administrator if your account is locked.
+
+### Security Notifications
+
+You'll receive email notifications for important security events:
+
+- New device login
+- Password changes
+- 2FA enabled or disabled
+- Passkey added or removed
+
+<Note>
+  Security notifications help you detect unauthorized access. Never ignore them - if you receive a notification for an action you didn't take, immediately change your password and enable 2FA.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="I can't receive verification emails">
+    Check your spam folder. If you still don't see the email, verify that your email server configuration is correct in the API environment variables.
+  </Accordion>
+  
+  <Accordion title="My 2FA codes don't work">
+    Ensure your device's clock is synchronized. TOTP codes are time-based and require accurate system time. Try using a backup code if available.
+  </Accordion>
+  
+  <Accordion title="Passkey registration fails">
+    Verify that:
+    - Your browser supports WebAuthn (Chrome, Firefox, Safari, Edge)
+    - PASSKEY_RP_ID matches your domain exactly
+    - You're accessing the panel over HTTPS (required for WebAuthn)
+  </Accordion>
+  
+  <Accordion title="I lost my 2FA device and backup codes">
+    Contact your StellarStack administrator to disable 2FA on your account. They can reset your authentication settings.
+  </Accordion>
+</AccordionGroup>

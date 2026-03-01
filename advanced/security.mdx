@@ -1,0 +1,556 @@
+---
+title: Security Features
+description: Security architecture, hardening, and best practices
+---
+
+StellarStack is built with security as a core principle. This guide covers the security features, hardening options, and best practices for production deployments.
+
+## Security Architecture
+
+StellarStack implements defense-in-depth:
+
+- **Authentication**: bcrypt password hashing, OAuth2, 2FA, passkeys
+- **Encryption**: AES-256-CBC for sensitive data at rest
+- **Rate Limiting**: Token bucket algorithm for API protection
+- **CSRF Protection**: CSRF tokens on all state-changing requests
+- **Security Headers**: CSP, HSTS, X-Frame-Options, etc.
+- **Container Isolation**: Docker with dropped capabilities
+
+## Authentication
+
+### Password Hashing
+
+Passwords are hashed with **bcrypt** (cost factor 10):
+
+```typescript
+// From Better Auth (used by StellarStack)
+import bcrypt from "bcrypt";
+
+const hashedPassword = await bcrypt.hash(password, 10);
+const isValid = await bcrypt.compare(inputPassword, hashedPassword);
+```
+
+Benefits:
+- Resistant to rainbow table attacks
+- Computationally expensive (slows brute-force)
+- Salted automatically
+
+### OAuth2 Providers
+
+Supported providers:
+- **Google** - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+- **GitHub** - GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+- **Discord** - DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET
+
+Configure in `apps/api/.env`:
+
+```bash
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-secret
+```
+
+### Two-Factor Authentication (2FA)
+
+TOTP-based 2FA via Better Auth:
+
+1. User enables 2FA in settings
+2. QR code generated with secret
+3. User scans with authenticator app (Authy, Google Authenticator)
+4. 6-digit code required on login
+
+### Passkeys (WebAuthn)
+
+Passwordless authentication:
+- Hardware keys (YubiKey, etc.)
+- Biometric (Face ID, Touch ID, Windows Hello)
+- Synced via iCloud Keychain / Google Password Manager
+
+## Encryption
+
+### AES-256-CBC
+
+Sensitive data encrypted at rest:
+
+```typescript
+// From apps/api/src/lib/crypto.ts (conceptual)
+import crypto from "crypto";
+
+const algorithm = "aes-256-cbc";
+const key = Buffer.from(process.env.ENCRYPTION_KEY!, "hex"); // 32 bytes
+
+function encrypt(text: string): string {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return `${iv.toString("hex")}:${encrypted}`;
+}
+
+function decrypt(encrypted: string): string {
+  const [ivHex, data] = encrypted.split(":");
+  const iv = Buffer.from(ivHex, "hex");
+  const decipher = crypto.createDecipheriv(algorithm, key, iv);
+  let decrypted = decipher.update(data, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
+```
+
+Encrypted fields:
+- Node authentication tokens
+- API keys for integrations
+- SFTP passwords
+- Backup encryption keys
+
+### Key Management
+
+Generate a secure key:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Add to `.env`:
+
+```bash
+ENCRYPTION_KEY=64_hex_characters_here
+```
+
+<Warning>
+  Never commit the encryption key to version control. Rotate keys periodically in production.
+</Warning>
+
+## Rate Limiting
+
+Token bucket algorithm protects against abuse.
+
+### Implementation
+
+From `apps/api/src/middleware/rate-limit.ts`:
+
+```typescript
+export const rateLimit = (config: RateLimitConfig) => {
+  const { maxRequests, windowMs, message, keyGenerator } = config;
+
+  return async (c: Context, next: Next) => {
+    const key = keyGenerator(c);
+    const now = Date.now();
+
+    let entry = rateLimitStore.get(key);
+
+    if (!entry) {
+      entry = { tokens: maxRequests, lastRefill: now };
+      rateLimitStore.set(key, entry);
+    }
+
+    // Refill tokens based on time passed
+    const timePassed = now - entry.lastRefill;
+    const tokensToAdd = Math.floor((timePassed / windowMs) * maxRequests);
+
+    if (tokensToAdd > 0) {
+      entry.tokens = Math.min(maxRequests, entry.tokens + tokensToAdd);
+      entry.lastRefill = now;
+    }
+
+    // Check if tokens available
+    if (entry.tokens <= 0) {
+      const retryAfter = Math.ceil((windowMs - (now - entry.lastRefill)) / 1000);
+      c.header("Retry-After", String(retryAfter));
+      return c.json({ error: message }, 429);
+    }
+
+    // Consume a token
+    entry.tokens -= 1;
+
+    // Add rate limit headers
+    c.header("X-RateLimit-Limit", String(maxRequests));
+    c.header("X-RateLimit-Remaining", String(entry.tokens));
+
+    return next();
+  };
+};
+```
+
+### Preset Limits
+
+| Endpoint Type | Max Requests | Window | Description |
+|---------------|--------------|--------|-------------|
+| **Authentication** | 5 | 1 minute | Login, register, password reset |
+| **Sensitive Operations** | 3 | 15 minutes | Email verification, 2FA setup |
+| **General API** | 100 | 1 minute | Most endpoints |
+| **Server Actions** | 10 | 1 minute | Start/stop/restart |
+| **File Operations** | 30 | 1 minute | Upload, delete, modify |
+
+From `apps/api/src/middleware/rate-limit.ts`:
+
+```typescript
+// Authentication endpoints
+export const authRateLimit = rateLimit({
+  maxRequests: 5,
+  windowMs: 60000, // 1 minute
+  message: "Too many authentication attempts",
+});
+
+// Sensitive operations
+export const sensitiveRateLimit = rateLimit({
+  maxRequests: 3,
+  windowMs: 900000, // 15 minutes
+  message: "Too many requests for this operation",
+});
+
+// Server power actions
+export const serverActionRateLimit = rateLimit({
+  maxRequests: 10,
+  windowMs: 60000,
+  message: "Too many server actions",
+  keyGenerator: (c) => {
+    const ip = getClientIp(c);
+    const serverId = c.req.param("id");
+    return `${ip}:${serverId}`;
+  },
+});
+```
+
+### Headers
+
+Rate limit info in response headers:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 47
+X-RateLimit-Reset: 1678901234
+Retry-After: 42
+```
+
+## CSRF Protection
+
+CSRF tokens required for state-changing requests.
+
+### How It Works
+
+1. Server generates token on login
+2. Token stored in session
+3. Frontend includes token in requests
+4. Server validates token matches session
+
+### Implementation
+
+Better Auth handles CSRF automatically:
+
+```typescript
+// All POST/PUT/DELETE/PATCH requests include:
+headers: {
+  "X-CSRF-Token": csrfToken,
+}
+```
+
+Invalid tokens return `403 Forbidden`.
+
+## Security Headers
+
+From `apps/api/src/middleware/security.ts`:
+
+```typescript
+export const securityHeaders = () => {
+  return async (c: Context, next: Next) => {
+    await next();
+
+    // Prevent clickjacking
+    c.header("X-Frame-Options", "DENY");
+
+    // Prevent MIME type sniffing
+    c.header("X-Content-Type-Options", "nosniff");
+
+    // Enable XSS filter in older browsers
+    c.header("X-XSS-Protection", "1; mode=block");
+
+    // Referrer policy
+    c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+
+    // Permissions policy (restrict browser features)
+    c.header(
+      "Permissions-Policy",
+      "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+    );
+
+    // Content Security Policy
+    c.header(
+      "Content-Security-Policy",
+      "default-src 'none'; frame-ancestors 'none'"
+    );
+
+    // Strict Transport Security (HTTPS only)
+    if (process.env.NODE_ENV === "production") {
+      c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+  };
+};
+```
+
+### Header Reference
+
+| Header | Value | Purpose |
+|--------|-------|----------|
+| `X-Frame-Options` | `DENY` | Prevent clickjacking |
+| `X-Content-Type-Options` | `nosniff` | Prevent MIME sniffing |
+| `X-XSS-Protection` | `1; mode=block` | Enable XSS filter (legacy) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Control referrer leakage |
+| `Permissions-Policy` | `camera=(), microphone=()` | Disable unused features |
+| `Content-Security-Policy` | `default-src 'none'` | Restrict resource loading |
+| `Strict-Transport-Security` | `max-age=31536000` | Force HTTPS (production) |
+
+## Container Security
+
+### Dropped Capabilities
+
+From `apps/daemon/src/environment/docker/environment.rs`:
+
+```rust
+pub(crate) fn dropped_capabilities() -> Vec<String> {
+    vec![
+        "setpcap", "mknod", "audit_write", "net_raw",
+        "dac_override", "fowner", "fsetid", "kill",
+        "setgid", "setuid", "net_bind_service",
+        "sys_chroot", "setfcap", "sys_admin",
+        "sys_boot", "sys_module", "sys_nice",
+        "sys_ptrace", "sys_rawio", "sys_resource",
+        "sys_time", "sys_tty_config", "audit_control",
+        // ... and more
+    ]
+    .into_iter()
+    .map(|s| s.to_uppercase())
+    .collect()
+}
+```
+
+### No New Privileges
+
+From `apps/daemon/src/environment/docker/container.rs`:
+
+```rust
+security_opt: Some(vec!["no-new-privileges".to_string()]),
+```
+
+Prevents SUID/SGID privilege escalation.
+
+### Non-Root User
+
+Containers run as UID 1000 (not root):
+
+```rust
+user: Some("1000:1000".to_string()),
+```
+
+### Read-Only Root (Optional)
+
+```rust
+readonly_rootfs: Some(true),  // Immutable base image
+```
+
+Servers write to mounted volumes, not the image.
+
+## SSRF Protection
+
+Server-Side Request Forgery prevention:
+
+```typescript
+export const validateExternalUrl = (url: string): boolean => {
+  const parsed = new URL(url);
+
+  // Block localhost
+  if ([
+    "localhost", "127.0.0.1", "::1", "0.0.0.0"
+  ].includes(parsed.hostname)) {
+    return false;
+  }
+
+  // Block private IPs
+  if (isPrivateIP(parsed.hostname)) {
+    return false;
+  }
+
+  // Only HTTP(S)
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return false;
+  }
+
+  return true;
+};
+
+const isPrivateIP = (ip: string): boolean => {
+  const privateRanges = [
+    /^10\./,                      // 10.0.0.0/8
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12
+    /^192\.168\./,                // 192.168.0.0/16
+    /^169\.254\./,                // 169.254.0.0/16 (link-local)
+    /^127\./,                     // 127.0.0.0/8 (loopback)
+  ];
+
+  return privateRanges.some(range => range.test(ip));
+};
+```
+
+## Input Validation
+
+All user input validated with Zod schemas:
+
+```typescript
+import { z } from "zod";
+
+const createServerSchema = z.object({
+  name: z.string().min(1).max(64),
+  memory: z.number().int().min(512).max(32768),
+  cpu: z.number().int().min(50).max(400),
+  disk: z.number().int().min(1024).max(102400),
+  port: z.number().int().min(1024).max(65535),
+});
+```
+
+Invalid input returns `400 Bad Request`.
+
+## Audit Logging
+
+All admin actions logged:
+
+```typescript
+await prisma.auditLog.create({
+  data: {
+    userId: user.id,
+    action: "server.delete",
+    targetType: "server",
+    targetId: serverId,
+    ip: getClientIp(c),
+    metadata: { name: server.name },
+  },
+});
+```
+
+View in **Admin** → **Audit Logs**.
+
+## Environment Validation
+
+From `apps/api/src/middleware/security.ts`:
+
+```typescript
+export const validateEnvironment = (): void => {
+  const errors: string[] = [];
+
+  // Critical variables
+  const criticalVars = ["BETTER_AUTH_SECRET", "DATABASE_URL"];
+  for (const envVar of criticalVars) {
+    if (!process.env[envVar]) {
+      errors.push(`Missing critical variable: ${envVar}`);
+    }
+  }
+
+  // Production-only requirements
+  if (process.env.NODE_ENV === "production") {
+    const productionVars = [
+      "FRONTEND_URL",
+      "API_URL",
+      "ENCRYPTION_KEY",
+      "DOWNLOAD_TOKEN_SECRET",
+    ];
+    for (const envVar of productionVars) {
+      if (!process.env[envVar]) {
+        errors.push(`Missing production variable: ${envVar}`);
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Security errors:\n${errors.join("\n")}`);
+  }
+};
+```
+
+## Best Practices
+
+### Production Checklist
+
+- [ ] Use HTTPS (Let's Encrypt or valid certificate)
+- [ ] Set `NODE_ENV=production`
+- [ ] Generate strong secrets (32+ characters)
+- [ ] Enable firewall (UFW, iptables, security groups)
+- [ ] Keep software updated (API, daemon, Node.js, Docker)
+- [ ] Enable 2FA for all admin accounts
+- [ ] Restrict database access (localhost only)
+- [ ] Use Redis for rate limiting (distributed systems)
+- [ ] Monitor logs for suspicious activity
+- [ ] Implement backup encryption
+
+### Firewall Rules
+
+```bash
+# Allow SSH (change port if needed)
+sudo ufw allow 22/tcp
+
+# Allow HTTP/HTTPS (Nginx)
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Allow game server ports (adjust range)
+sudo ufw allow 25565:25665/tcp
+sudo ufw allow 25565:25665/udp
+
+# Deny daemon API from public (allow only from API server)
+# sudo ufw allow from <API_SERVER_IP> to any port 8080
+
+sudo ufw enable
+```
+
+### Secret Rotation
+
+Rotate secrets periodically:
+
+```bash
+# Generate new auth secret
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Update .env
+BETTER_AUTH_SECRET=new_secret_here
+
+# Restart services
+sudo systemctl restart stellarstack-api
+```
+
+Users will be logged out (expected).
+
+### Backup Security
+
+Encrypt backups:
+
+```bash
+# Encrypt with GPG
+tar czf - /var/lib/stellar/backups | gpg --symmetric --cipher-algo AES256 -o backup.tar.gz.gpg
+
+# Decrypt
+gpg --decrypt backup.tar.gz.gpg | tar xzf -
+```
+
+## Reporting Vulnerabilities
+
+Found a security issue?
+
+**Email**: security@stellarstack.app
+
+**Include**:
+- Detailed description
+- Steps to reproduce
+- Impact assessment
+- Suggested fix (if any)
+
+**Response time**: 48 hours
+
+**Disclosure**: Coordinated disclosure (90 days)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Daemon Setup" icon="server" href="/advanced/daemon-setup">
+    Secure daemon installation
+  </Card>
+  <Card title="Custom Domains" icon="globe" href="/advanced/custom-domains">
+    SSL/TLS configuration
+  </Card>
+</CardGroup>

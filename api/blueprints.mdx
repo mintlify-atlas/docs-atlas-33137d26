@@ -1,0 +1,494 @@
+---
+title: 'Blueprints'
+description: 'Manage server blueprints (game types and configurations)'
+---
+
+## List Blueprints
+
+<CodeGroup>
+```http GET /api/blueprints
+GET /api/blueprints
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+List all blueprints. Users see public blueprints, admins see all.
+
+### Authentication
+
+Requires authentication.
+
+### Response
+
+<ResponseField name="blueprints" type="array">
+  Array of blueprint objects
+  
+  <Expandable title="Blueprint Object">
+    <ResponseField name="id" type="string">Blueprint UUID</ResponseField>
+    <ResponseField name="name" type="string">Blueprint name</ResponseField>
+    <ResponseField name="description" type="string">Blueprint description</ResponseField>
+    <ResponseField name="category" type="string">Category (e.g., "minecraft", "voice")</ResponseField>
+    <ResponseField name="author" type="string">Author name</ResponseField>
+    <ResponseField name="metaVersion" type="string">Pterodactyl version (default "PTDL_v2")</ResponseField>
+    <ResponseField name="dockerImages" type="object">Available docker images (label -> image)</ResponseField>
+    <ResponseField name="startup" type="string">Startup command template</ResponseField>
+    <ResponseField name="config" type="object">Configuration object</ResponseField>
+    <ResponseField name="scripts" type="object">Installation scripts</ResponseField>
+    <ResponseField name="variables" type="array">Environment variables</ResponseField>
+    <ResponseField name="features" type="array">Feature flags</ResponseField>
+    <ResponseField name="fileDenylist" type="array">Blocked file patterns</ResponseField>
+    <ResponseField name="isPublic" type="boolean">Whether blueprint is public</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "minecraft-java",
+    "name": "Minecraft Java",
+    "description": "Vanilla Minecraft Java Edition",
+    "category": "minecraft",
+    "author": "StellarStack",
+    "metaVersion": "PTDL_v2",
+    "dockerImages": {
+      "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
+      "Java 17": "ghcr.io/pterodactyl/yolks:java_17"
+    },
+    "startup": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar {{SERVER_JARFILE}}",
+    "config": {
+      "stop": "stop",
+      "startup": {
+        "done": ["Done ("]
+      }
+    },
+    "variables": [
+      {
+        "name": "Minecraft Version",
+        "description": "The version of Minecraft to download",
+        "env_variable": "MINECRAFT_VERSION",
+        "default_value": "latest",
+        "user_viewable": true,
+        "user_editable": true,
+        "rules": "required|string"
+      }
+    ],
+    "features": ["eula"],
+    "fileDenylist": [],
+    "isPublic": true
+  }
+]
+```
+</ResponseExample>
+
+---
+
+## Get Blueprint
+
+<CodeGroup>
+```http GET /api/blueprints/:id
+GET /api/blueprints/{id}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get detailed information about a specific blueprint.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Blueprint UUID
+</ParamField>
+
+### Authentication
+
+Requires authentication. Non-admins can only view public blueprints.
+
+### Response
+
+Returns a detailed blueprint object.
+
+### Errors
+
+- `404` - Blueprint not found or not public (for non-admins)
+
+---
+
+## Create Blueprint
+
+<CodeGroup>
+```http POST /api/blueprints
+POST /api/blueprints
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Create a new blueprint. Admin only.
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Blueprint name (1-100 characters)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Blueprint description
+</ParamField>
+
+<ParamField body="category" type="string">
+  Category (e.g., "minecraft", "voice", "other")
+</ParamField>
+
+<ParamField body="author" type="string">
+  Author name
+</ParamField>
+
+<ParamField body="dockerImages" type="object" default="{}">
+  Docker images as key-value pairs (label -> image)
+</ParamField>
+
+<ParamField body="startup" type="string" default="">
+  Startup command template with variable substitution
+</ParamField>
+
+<ParamField body="config" type="object">
+  Configuration object (stop command, startup detection, etc.)
+</ParamField>
+
+<ParamField body="scripts" type="object">
+  Installation scripts object
+</ParamField>
+
+<ParamField body="variables" type="array">
+  Environment variable definitions
+</ParamField>
+
+<ParamField body="features" type="array">
+  Feature flags array
+</ParamField>
+
+<ParamField body="fileDenylist" type="array" default="[]">
+  File patterns to block
+</ParamField>
+
+<ParamField body="dockerConfig" type="object">
+  Docker container configuration
+</ParamField>
+
+<ParamField body="isPublic" type="boolean" default="true">
+  Whether blueprint is publicly visible
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "name": "Custom Minecraft",
+  "description": "Custom modded Minecraft server",
+  "category": "minecraft",
+  "author": "MyOrg",
+  "dockerImages": {
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21"
+  },
+  "startup": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar server.jar",
+  "config": {
+    "stop": "stop",
+    "startup": {
+      "done": ["Done ("]
+    }
+  },
+  "variables": [
+    {
+      "name": "Server JAR",
+      "env_variable": "SERVER_JARFILE",
+      "default_value": "server.jar",
+      "user_viewable": true,
+      "user_editable": true
+    }
+  ],
+  "features": ["eula"],
+  "fileDenylist": [],
+  "isPublic": true
+}
+```
+</RequestExample>
+
+### Response
+
+Returns the created blueprint object with status 201.
+
+### Errors
+
+- `400` - Validation failed
+
+---
+
+## Update Blueprint
+
+<CodeGroup>
+```http PATCH /api/blueprints/:id
+PATCH /api/blueprints/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Update an existing blueprint. Admin only.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Blueprint UUID
+</ParamField>
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+All fields are optional. Only include fields you want to update.
+
+### Response
+
+Returns the updated blueprint object.
+
+### Errors
+
+- `400` - Validation failed
+- `404` - Blueprint not found
+
+---
+
+## Delete Blueprint
+
+<CodeGroup>
+```http DELETE /api/blueprints/:id
+DELETE /api/blueprints/{id}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Delete a blueprint. Cannot delete blueprints in use by servers. Admin only.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Blueprint UUID
+</ParamField>
+
+### Authentication
+
+Requires admin role.
+
+### Response
+
+```json
+{ "success": true }
+```
+
+### Errors
+
+- `400` - Blueprint is in use by servers
+- `404` - Blueprint not found
+
+---
+
+## Import Pterodactyl Egg
+
+<CodeGroup>
+```http POST /api/blueprints/import/egg
+POST /api/blueprints/import/egg
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Import a Pterodactyl egg JSON file as a blueprint. Admin only.
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+Provide the complete Pterodactyl egg JSON object.
+
+<ParamField body="name" type="string" required>
+  Egg name
+</ParamField>
+
+<ParamField body="author" type="string">
+  Egg author
+</ParamField>
+
+<ParamField body="description" type="string">
+  Egg description
+</ParamField>
+
+<ParamField body="meta" type="object">
+  Metadata object with version and update_url
+</ParamField>
+
+<ParamField body="docker_images" type="object">
+  Docker images object
+</ParamField>
+
+<ParamField body="startup" type="string">
+  Startup command
+</ParamField>
+
+<ParamField body="config" type="object">
+  Configuration object
+</ParamField>
+
+<ParamField body="scripts" type="object">
+  Installation scripts
+</ParamField>
+
+<ParamField body="variables" type="array">
+  Variable definitions
+</ParamField>
+
+<ParamField body="features" type="array">
+  Feature flags
+</ParamField>
+
+<ParamField body="file_denylist" type="array">
+  File denylist
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "name": "Minecraft",
+  "author": "support@pterodactyl.io",
+  "description": "Minecraft Java Edition",
+  "features": ["eula"],
+  "docker_images": {
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21"
+  },
+  "startup": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar {{SERVER_JARFILE}}",
+  "config": {
+    "stop": "stop",
+    "startup": {
+      "done": ["Done ("]
+    }
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\n# Install script here",
+      "container": "ghcr.io/pterodactyl/installers:alpine"
+    }
+  },
+  "variables": [
+    {
+      "name": "Minecraft Version",
+      "env_variable": "MINECRAFT_VERSION",
+      "default_value": "latest",
+      "user_viewable": true,
+      "user_editable": true
+    }
+  ]
+}
+```
+</RequestExample>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Always true on success
+</ResponseField>
+
+<ResponseField name="blueprint" type="object">
+  The created blueprint object
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "success": true,
+  "blueprint": {
+    "id": "imported-minecraft",
+    "name": "Minecraft",
+    "category": "imported",
+    "author": "support@pterodactyl.io"
+  },
+  "message": "Successfully imported \"Minecraft\" from Pterodactyl egg"
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Invalid Pterodactyl egg format
+
+---
+
+## Export as Pterodactyl Egg
+
+<CodeGroup>
+```http GET /api/blueprints/:id/export/egg
+GET /api/blueprints/{id}/export/egg
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Export a blueprint as Pterodactyl egg JSON format. Admin only.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Blueprint UUID
+</ParamField>
+
+### Authentication
+
+Requires admin role.
+
+### Response
+
+Returns a Pterodactyl egg JSON object.
+
+<ResponseExample>
+```json
+{
+  "_comment": "EXPORTED FROM STELLARSTACK",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2024-01-15T12:00:00Z",
+  "name": "Minecraft Java",
+  "author": "StellarStack",
+  "description": "Vanilla Minecraft Java Edition",
+  "features": ["eula"],
+  "docker_images": {
+    "Java 21": "ghcr.io/pterodactyl/yolks:java_21"
+  },
+  "startup": "java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar {{SERVER_JARFILE}}",
+  "config": {
+    "stop": "stop"
+  },
+  "scripts": {},
+  "variables": [],
+  "file_denylist": []
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `404` - Blueprint not found

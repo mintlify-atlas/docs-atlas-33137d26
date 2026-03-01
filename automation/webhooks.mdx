@@ -1,0 +1,355 @@
+---
+title: Webhooks
+description: Receive real-time notifications about server events via webhooks
+---
+
+Webhooks allow you to receive real-time notifications when events occur in StellarStack. Send notifications to Discord, Slack, or any custom endpoint.
+
+## Supported Events
+
+StellarStack supports the following webhook event types:
+
+### Server Power Events
+
+- `server.started` - Server has started
+- `server.stopped` - Server has stopped
+- `server.crashed` - Server has crashed
+- `server.restarted` - Server has restarted
+- `server.auto_shutdown` - Server was automatically shut down due to inactivity
+
+### Server Lifecycle Events
+
+- `server.created` - New server created
+- `server.deleted` - Server deleted
+- `server.updated` - Server settings updated
+- `server.suspended` - Server suspended
+- `server.unsuspended` - Server unsuspended
+
+### Backup Events
+
+- `backup.created` - Backup created successfully
+- `backup.failed` - Backup failed
+- `backup.restored` - Backup restored
+- `backup.deleted` - Backup deleted
+
+### Transfer Events
+
+- `transfer.started` - Server transfer started
+- `transfer.completed` - Server transfer completed
+- `transfer.failed` - Server transfer failed
+
+### File Events
+
+- `file.created` - File created
+- `file.deleted` - File deleted
+- `file.modified` - File modified
+
+### Resource Events
+
+- `resource.warning` - Resource usage warning threshold exceeded
+- `resource.critical` - Resource usage critical threshold exceeded
+
+## Creating a Webhook
+
+### Discord Webhook
+
+Create a Discord webhook to receive notifications in a Discord channel:
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://discord.com/api/webhooks/123456789/abcdefg",
+    "events": [
+      "server.started",
+      "server.stopped",
+      "server.crashed"
+    ],
+    "serverId": "srv_123" // Optional: specific server
+  }'
+```
+
+<Steps>
+  <Step title="Get Discord Webhook URL">
+    In Discord, go to Server Settings → Integrations → Webhooks → New Webhook. Copy the webhook URL.
+  </Step>
+  
+  <Step title="Configure Events">
+    Select which events you want to receive notifications for. You can subscribe to multiple events.
+  </Step>
+  
+  <Step title="Set Server Scope (Optional)">
+    Leave `serverId` empty for global webhooks, or specify a server ID to only receive events for that server.
+  </Step>
+</Steps>
+
+### Global vs Server-Specific Webhooks
+
+```json
+{
+  // Global webhook - receives events from ALL servers
+  "url": "https://discord.com/api/webhooks/...",
+  "events": ["server.crashed"],
+  "serverId": null
+}
+```
+
+```json
+{
+  // Server-specific webhook - only this server
+  "url": "https://discord.com/api/webhooks/...",
+  "events": ["server.started", "server.stopped"],
+  "serverId": "srv_abc123"
+}
+```
+
+## Managing Webhooks
+
+### List All Webhooks
+
+```bash
+curl -X GET https://api.stellarstack.com/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+### Update a Webhook
+
+```bash
+curl -X PATCH https://api.stellarstack.com/webhooks/wh_123 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": ["server.crashed", "backup.failed"],
+    "enabled": true
+  }'
+```
+
+### Delete a Webhook
+
+```bash
+curl -X DELETE https://api.stellarstack.com/webhooks/wh_123 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+### Test a Webhook
+
+Send a test notification to verify your webhook is working:
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks/wh_123/test \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Webhook Payload
+
+All webhooks receive a JSON payload with the following structure:
+
+```typescript
+interface WebhookPayload {
+  event: string;           // Event type (e.g., "server.crashed")
+  timestamp: string;       // ISO 8601 timestamp
+  server?: {              // Server info (if applicable)
+    id: string;
+    name: string;
+    status: string;
+  };
+  data?: Record<string, any>; // Event-specific data
+}
+```
+
+### Discord Format
+
+Webhooks sent to Discord are automatically formatted as rich embeds:
+
+```json
+{
+  "embeds": [{
+    "title": "🔔 Server Crashed",
+    "color": 16711680,
+    "fields": [
+      {
+        "name": "Server",
+        "value": "Production MC Server",
+        "inline": true
+      },
+      {
+        "name": "Status",
+        "value": "CRASHED",
+        "inline": true
+      }
+    ],
+    "timestamp": "2025-01-15T10:30:00.000Z",
+    "footer": { "text": "StellarStack" }
+  }]
+}
+```
+
+### Example: Server Crash Event
+
+```json
+{
+  "event": "server.crashed",
+  "timestamp": "2025-01-15T10:30:00.000Z",
+  "server": {
+    "id": "srv_abc123",
+    "name": "Production MC Server",
+    "status": "CRASHED"
+  },
+  "data": {
+    "exitCode": 1,
+    "signal": "SIGTERM"
+  }
+}
+```
+
+## Delivery & Retries
+
+### Delivery Tracking
+
+View webhook delivery history:
+
+```bash
+curl -X GET https://api.stellarstack.com/webhooks/wh_123/deliveries \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Response:
+
+```json
+{
+  "deliveries": [
+    {
+      "id": "del_abc",
+      "event": "server.crashed",
+      "statusCode": 200,
+      "attempts": 1,
+      "deliveredAt": "2025-01-15T10:30:01.234Z",
+      "createdAt": "2025-01-15T10:30:00.567Z"
+    }
+  ],
+  "total": 45,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### Automatic Retries
+
+StellarStack automatically retries failed webhook deliveries:
+
+- **Attempt 1**: Immediate
+- **Attempt 2**: After 1 minute
+- **Attempt 3**: After 5 minutes
+- **Attempt 4**: After 30 minutes
+- **Attempt 5**: After 2 hours (final)
+
+<Info>
+Webhooks are considered successful if they return HTTP status codes 200-299. Failed deliveries are automatically retried up to 5 times with exponential backoff.
+</Info>
+
+### Manual Retry
+
+Retry a failed delivery manually:
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks/wh_123/deliveries/del_abc/retry \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Use Cases
+
+### Discord Notification for Server Crashes
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN",
+    "events": [
+      "server.crashed",
+      "server.auto_shutdown"
+    ]
+  }'
+```
+
+### Backup Notifications
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN",
+    "events": [
+      "backup.created",
+      "backup.failed"
+    ],
+    "serverId": "srv_important_server"
+  }'
+```
+
+### Resource Monitoring
+
+```bash
+curl -X POST https://api.stellarstack.com/webhooks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+    "events": [
+      "resource.warning",
+      "resource.critical"
+    ]
+  }'
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Specific Events" icon="filter">
+    Only subscribe to events you need to reduce noise and improve signal-to-noise ratio.
+  </Card>
+  
+  <Card title="Server-Specific Webhooks" icon="server">
+    Create separate webhooks for critical servers to ensure important notifications aren't missed.
+  </Card>
+  
+  <Card title="Monitor Delivery Status" icon="chart-line">
+    Regularly check delivery history to ensure webhooks are being delivered successfully.
+  </Card>
+  
+  <Card title="Secure Webhook URLs" icon="lock">
+    Keep webhook URLs private. Anyone with the URL can send messages to your channel.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Warning>
+If webhooks aren't being delivered:
+- Verify the webhook URL is correct and accessible
+- Check that the webhook is enabled
+- Ensure the events are correctly configured
+- Review delivery logs for error messages
+</Warning>
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Webhook returns 404">
+    The webhook URL is invalid or has been deleted. Create a new webhook in Discord/Slack.
+  </Accordion>
+  
+  <Accordion title="No notifications received">
+    Check that:
+    - The webhook is enabled (`"enabled": true`)
+    - You're subscribed to the correct events
+    - The `serverId` matches (if using server-specific webhooks)
+  </Accordion>
+  
+  <Accordion title="Delivery timeout">
+    Webhooks have a 10-second timeout. If your endpoint is slow to respond, deliveries may fail and retry.
+  </Accordion>
+</AccordionGroup>

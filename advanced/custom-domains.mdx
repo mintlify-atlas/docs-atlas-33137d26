@@ -1,0 +1,384 @@
+---
+title: Custom Domains
+description: Configure custom domains for your servers and panel
+---
+
+StellarStack supports custom domains for both the panel itself and individual game servers. This guide covers DNS configuration, reverse proxy setup, and SSL/TLS certificates.
+
+## Panel Custom Domain
+
+By default, the panel runs on `localhost:3000` (development) or your server's IP address. For production, you should use a custom domain.
+
+### DNS Configuration
+
+Point your domain to your panel server:
+
+```
+Type  Name              Value              TTL
+A     panel             203.0.113.50       300
+A     api               203.0.113.50       300
+```
+
+Or use a CNAME if your host provides one:
+
+```
+Type   Name              Value                    TTL
+CNAME  panel             server.hosting.com       300
+CNAME  api               server.hosting.com       300
+```
+
+### Nginx Reverse Proxy
+
+Create `/etc/nginx/sites-available/stellarstack`:
+
+```nginx
+# API Server
+server {
+    listen 80;
+    server_name api.stellarstack.app;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.stellarstack.app;
+
+    # SSL certificates (managed by Certbot)
+    ssl_certificate /etc/letsencrypt/live/api.stellarstack.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.stellarstack.app/privkey.pem;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+
+    # Proxy to API
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket support
+    location /ws {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+}
+
+# Web Panel
+server {
+    listen 80;
+    server_name panel.stellarstack.app;
+
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name panel.stellarstack.app;
+
+    ssl_certificate /etc/letsencrypt/live/panel.stellarstack.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/panel.stellarstack.app/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the site:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/stellarstack /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### SSL Certificates
+
+Use Let's Encrypt (Certbot) for free SSL:
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d api.stellarstack.app -d panel.stellarstack.app
+```
+
+Certbot automatically:
+- Obtains certificates
+- Configures Nginx
+- Sets up auto-renewal
+
+### Environment Variables
+
+Update your `.env` files:
+
+**apps/api/.env:**
+```bash
+FRONTEND_URL=https://panel.stellarstack.app
+API_URL=https://api.stellarstack.app
+BETTER_AUTH_URL=https://api.stellarstack.app/api/auth
+```
+
+**apps/web/.env:**
+```bash
+NEXT_PUBLIC_API_URL=https://api.stellarstack.app
+NEXT_PUBLIC_APP_URL=https://panel.stellarstack.app
+```
+
+Restart services:
+
+```bash
+sudo systemctl restart stellarstack-api
+sudo systemctl restart stellarstack-web
+```
+
+## Server Custom Domains
+
+Individual game servers can have custom domains (e.g., `play.example.com`).
+
+### DNS for Game Servers
+
+For a Minecraft server on port 25565:
+
+```
+Type  Name              Value              TTL
+A     play              203.0.113.50       300
+```
+
+For non-standard ports, add an SRV record:
+
+```
+Type  Name                    Value                          Priority  Weight  Port   TTL
+SRV   _minecraft._tcp.play    0 5 25566 play.example.com   0         5       25566  300
+```
+
+Players can then connect via:
+- `play.example.com` (default port 25565)
+- `play.example.com:25566` (custom port)
+
+### Subdomain Per Server
+
+For multiple servers under one domain:
+
+```
+Type  Name              Value              TTL
+A     survival          203.0.113.50       300
+A     creative          203.0.113.50       300
+A     skyblock          203.0.113.51       300
+```
+
+Map to different ports or nodes.
+
+### Wildcard DNS
+
+For dynamic server provisioning:
+
+```
+Type  Name              Value              TTL
+A     *                 203.0.113.50       300
+```
+
+All subdomains (e.g., `server1.example.com`, `server2.example.com`) resolve to the same IP.
+
+## Daemon Custom Domain
+
+If your daemon is on a separate machine:
+
+```
+Type  Name              Value              TTL
+A     daemon1           203.0.113.60       300
+```
+
+### Nginx for Daemon API
+
+Create `/etc/nginx/sites-available/stellarstack-daemon`:
+
+```nginx
+server {
+    listen 80;
+    server_name daemon1.stellarstack.app;
+
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name daemon1.stellarstack.app;
+
+    ssl_certificate /etc/letsencrypt/live/daemon1.stellarstack.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/daemon1.stellarstack.app/privkey.pem;
+
+    # Only allow API server IP
+    allow 203.0.113.50;
+    deny all;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket for console
+    location /ws {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }
+}
+```
+
+### Daemon SSL Configuration
+
+Alternatively, enable SSL directly in the daemon:
+
+```toml
+[api.ssl]
+enabled = true
+cert = "/etc/letsencrypt/live/daemon1.stellarstack.app/fullchain.pem"
+key = "/etc/letsencrypt/live/daemon1.stellarstack.app/privkey.pem"
+```
+
+Update the node in the panel:
+- **Protocol**: HTTPS
+- **FQDN**: `daemon1.stellarstack.app`
+- **Port**: 8080
+
+## Cloudflare Integration
+
+Cloudflare provides:
+- Free SSL certificates
+- DDoS protection
+- CDN caching (for static assets)
+
+### Setup Steps
+
+1. Add your domain to Cloudflare
+2. Update nameservers at your registrar
+3. Create DNS records (orange cloud = proxied)
+
+**Panel/API** (proxied):
+```
+Type  Name              Value              Proxy
+A     panel             203.0.113.50       Yes (orange cloud)
+A     api               203.0.113.50       Yes
+```
+
+**Game servers** (DNS-only):
+```
+Type  Name              Value              Proxy
+A     play              203.0.113.50       No (gray cloud)
+```
+
+<Warning>
+  Do NOT proxy game server traffic through Cloudflare. Most game protocols (UDP, custom TCP) are not compatible with Cloudflare's proxy.
+</Warning>
+
+### SSL Mode
+
+Set SSL/TLS mode to **Full (Strict)** in Cloudflare:
+- Cloudflare encrypts traffic to users
+- Your server uses a valid certificate
+
+## Monitoring & Health Checks
+
+Set up uptime monitoring for your domains:
+
+### Uptime Robot
+
+Free tier includes:
+- HTTP(S) monitoring every 5 minutes
+- Email/Slack alerts
+- Status pages
+
+Monitor:
+- `https://panel.stellarstack.app`
+- `https://api.stellarstack.app/health`
+- `https://daemon1.stellarstack.app/health`
+
+### Prometheus + Grafana
+
+For advanced metrics:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'stellarstack-api'
+    static_configs:
+      - targets: ['api.stellarstack.app:3001']
+
+  - job_name: 'stellarstack-daemon'
+    static_configs:
+      - targets: ['daemon1.stellarstack.app:8080']
+```
+
+## Troubleshooting
+
+### DNS not resolving
+
+**Check propagation:**
+
+```bash
+dig panel.stellarstack.app
+nslookup panel.stellarstack.app
+```
+
+DNS changes take 5-60 minutes to propagate globally.
+
+### SSL certificate errors
+
+**Verify certificate:**
+
+```bash
+openssl s_client -connect api.stellarstack.app:443 -servername api.stellarstack.app
+```
+
+**Check Certbot logs:**
+
+```bash
+sudo tail -f /var/log/letsencrypt/letsencrypt.log
+```
+
+### 502 Bad Gateway
+
+**Check backend services:**
+
+```bash
+sudo systemctl status stellarstack-api
+sudo systemctl status stellarstack-web
+```
+
+**Test local connectivity:**
+
+```bash
+curl http://localhost:3001/health
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Security Features" icon="shield" href="/advanced/security">
+    Secure your installation
+  </Card>
+  <Card title="Daemon Setup" icon="server" href="/advanced/daemon-setup">
+    Configure daemon nodes
+  </Card>
+</CardGroup>

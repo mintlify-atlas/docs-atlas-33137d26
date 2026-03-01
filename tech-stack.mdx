@@ -1,0 +1,797 @@
+---
+title: Tech stack
+description: Modern technologies powering StellarStack's backend, frontend, daemon, and infrastructure
+---
+
+# Tech stack
+
+StellarStack is built with modern, production-grade technologies chosen for performance, developer experience, and long-term maintainability.
+
+## Backend (API)
+
+The API server handles authentication, permissions, and orchestration.
+
+### Hono
+
+<Card title="Hono" icon="bolt" href="https://hono.dev">
+  Ultrafast web framework for the Edge (~40,000 req/s)
+</Card>
+
+**Why Hono?**
+- Extremely fast routing and request handling
+- TypeScript-first with excellent type inference
+- Lightweight (no dependencies, ~12KB)
+- Works on Node.js, Bun, Deno, and Edge runtimes
+- Middleware ecosystem (CORS, logger, rate limiting)
+
+```typescript
+// From apps/api/src/index.ts
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+
+const app = new Hono();
+
+app.use("*", logger());
+app.use("/api/*", cors({ origin: FRONTEND_URL, credentials: true }));
+
+app.get("/health", (c) => {
+  return c.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+```
+
+### Better Auth
+
+<Card title="Better Auth" icon="shield" href="https://better-auth.com">
+  Modern authentication library with OAuth, 2FA, and passkeys
+</Card>
+
+**Features:**
+- Email/password authentication with bcrypt hashing
+- OAuth providers (Google, GitHub, Discord)
+- Two-factor authentication (TOTP)
+- Passkey support (WebAuthn)
+- Session management with secure HTTP-only cookies
+- TypeScript-first API
+
+```typescript
+// From apps/api/src/lib/auth.ts
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { passkey } from "@better-auth/passkey";
+
+export const auth = betterAuth({
+  database: prismaAdapter(db, { provider: "postgresql" }),
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 8,
+    requireEmailVerification: true,
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+    discord: {
+      clientId: process.env.DISCORD_CLIENT_ID!,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+    },
+  },
+  plugins: [passkey()],
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 1 day
+  },
+});
+```
+
+### Prisma ORM
+
+<Card title="Prisma" icon="database" href="https://prisma.io">
+  Type-safe ORM with automatic migrations for PostgreSQL
+</Card>
+
+**Why Prisma?**
+- Full TypeScript type safety
+- Intuitive data modeling with Prisma Schema
+- Automatic migrations
+- Query builder prevents SQL injection
+- Excellent developer experience with Prisma Studio
+
+```prisma
+// From apps/api/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  role             String   @default("user")
+  banned           Boolean  @default(false)
+  twoFactorEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  sessions   Session[]
+  accounts   Account[]
+  servers    Server[]
+  webhooks   Webhook[]
+  
+  serverMemberships   ServerMember[]
+  sentInvitations     ServerInvitation[] @relation("SentInvitations")
+  receivedInvitations ServerInvitation[] @relation("ReceivedInvitations")
+
+  @@map("users")
+}
+```
+
+### WebSocket
+
+<Card title="@hono/node-ws" icon="bolt" href="https://github.com/honojs/node-ws">
+  WebSocket support for Hono on Node.js
+</Card>
+
+Real-time console output and server statistics stream via WebSocket:
+
+```typescript
+// From apps/api/src/index.ts
+import { createNodeWebSocket } from "@hono/node-ws";
+
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
+
+// WebSocket route for console streaming
+app.get(
+  "/api/ws/console/:serverId",
+  upgradeWebSocket((c) => {
+    const serverId = c.req.param("serverId");
+    
+    return {
+      onOpen(evt, ws) {
+        console.log(`[WS] Client connected to server ${serverId}`);
+        wsManager.subscribe(serverId, ws);
+      },
+      onMessage(evt, ws) {
+        const data = JSON.parse(evt.data.toString());
+        if (data.type === "command") {
+          // Forward command to daemon
+          forwardCommandToDaemon(serverId, data.command);
+        }
+      },
+      onClose(evt, ws) {
+        wsManager.unsubscribe(serverId, ws);
+      },
+    };
+  })
+);
+```
+
+### Dependencies
+
+```json
+// From apps/api/package.json
+{
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@hono/node-ws": "^1.2.0",
+    "@prisma/client": "6.19.2",
+    "@better-auth/passkey": "^1.4.9",
+    "bcrypt": "^6.0.0",
+    "better-auth": "^1.1.14",
+    "hono": "^4.6.16",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^7.0.12",
+    "ws": "^8.18.3",
+    "zod": "^3.24.1"
+  }
+}
+```
+
+---
+
+## Frontend (Web Panel)
+
+The web panel provides a real-time dashboard built with React and Next.js.
+
+### Next.js 15
+
+<Card title="Next.js 15" icon="react" href="https://nextjs.org">
+  React framework with App Router and Server Components
+</Card>
+
+**Why Next.js 15?**
+- App Router with React Server Components
+- Server-side rendering for fast initial page loads
+- API routes for backend-for-frontend patterns
+- Built-in image optimization
+- Turbopack for faster dev builds
+
+```typescript
+// From apps/web/package.json
+{
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^15.5.9",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  }
+}
+```
+
+### React 19
+
+<Card title="React 19" icon="react" href="https://react.dev">
+  UI library with Server Components and improved performance
+</Card>
+
+**New features:**
+- Server Components for zero-bundle-size data fetching
+- Actions for form handling
+- `use()` hook for async data
+- Improved hydration and error handling
+
+```typescript
+// From apps/web/app/servers/page.tsx (conceptual)
+import { Suspense } from 'react';
+
+async function ServerList() {
+  const servers = await fetch('http://localhost:3001/api/servers').then(r => r.json());
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {servers.map(server => (
+        <ServerCard key={server.id} server={server} />
+      ))}
+    </div>
+  );
+}
+
+export default function ServersPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <ServerList />
+    </Suspense>
+  );
+}
+```
+
+### Tailwind CSS
+
+<Card title="Tailwind CSS" icon="paintbrush" href="https://tailwindcss.com">
+  Utility-first CSS framework for rapid UI development
+</Card>
+
+**Why Tailwind?**
+- Utility classes for fast prototyping
+- No CSS-in-JS runtime overhead
+- Automatic purging of unused styles
+- Excellent design system with spacing, colors, and typography
+- Dark mode support out of the box
+
+```tsx
+// Example component with Tailwind
+export function ServerCard({ server }) {
+  return (
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div className="p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">{server.name}</h3>
+          <StatusBadge status={server.status} />
+        </div>
+        <div className="text-sm text-muted-foreground">
+          <p>CPU: {server.cpu}%</p>
+          <p>Memory: {server.memory} MB</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### shadcn/ui
+
+<Card title="shadcn/ui" icon="palette" href="https://ui.shadcn.com">
+  Accessible component library built with Radix UI and Tailwind
+</Card>
+
+**Components used:**
+- Button, Input, Textarea, Select, Checkbox
+- Dialog, Sheet, Dropdown Menu, Popover
+- Table, Tabs, Accordion, Alert
+- Card, Badge, Avatar, Skeleton
+
+```tsx
+// From apps/web/components/ui/button.tsx (simplified)
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-input bg-background hover:bg-accent",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 px-3",
+        lg: "h-11 px-8",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+);
+```
+
+### TanStack Query
+
+<Card title="TanStack Query" icon="arrows-rotate" href="https://tanstack.com/query">
+  Powerful data fetching and caching library
+</Card>
+
+**Features:**
+- Automatic background refetching
+- Request deduplication
+- Optimistic updates
+- Infinite queries for pagination
+- DevTools for debugging
+
+```typescript
+// From apps/web/hooks/useServers.ts (conceptual)
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+export function useServers() {
+  return useQuery({
+    queryKey: ['servers'],
+    queryFn: async () => {
+      const res = await fetch('/api/servers');
+      if (!res.ok) throw new Error('Failed to fetch servers');
+      return res.json();
+    },
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+}
+
+export function useStartServer() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (serverId: string) => {
+      const res = await fetch(`/api/servers/${serverId}/power`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'start' }),
+      });
+      if (!res.ok) throw new Error('Failed to start server');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+    },
+  });
+}
+```
+
+### Dependencies
+
+```json
+// From apps/web/package.json (selected)
+{
+  "dependencies": {
+    "next": "^15.5.9",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "@tanstack/react-query": "^5.90.12",
+    "@tanstack/react-table": "^8.21.3",
+    "better-auth": "^1.1.14",
+    "framer-motion": "^12.23.25",
+    "lucide-react": "^0.68.0",
+    "next-themes": "^0.4.6",
+    "react-hook-form": "^7.71.0",
+    "recharts": "2.15.4",
+    "sonner": "^2.0.7",
+    "zod": "^4.3.5",
+    "zustand": "^5.0.9"
+  }
+}
+```
+
+---
+
+## Daemon (Nodes)
+
+The daemon runs on each physical server and manages Docker containers.
+
+### Rust
+
+<Card title="Rust" icon="gear" href="https://rust-lang.org">
+  Systems programming language for performance and safety
+</Card>
+
+**Why Rust?**
+- Memory safety without garbage collection
+- Zero-cost abstractions
+- Fearless concurrency with ownership system
+- Excellent performance (comparable to C/C++)
+- Rich ecosystem with Cargo package manager
+
+### Docker (Bollard)
+
+<Card title="Bollard" icon="docker" href="https://docs.rs/bollard">
+  Async Docker API client for Rust
+</Card>
+
+**Container operations:**
+- Create, start, stop, restart, kill containers
+- Stream logs in real-time
+- Execute commands inside containers
+- Monitor resource usage (CPU, memory, network)
+- Manage volumes and networks
+
+```toml
+# From apps/daemon/Cargo.toml
+[dependencies]
+bollard = "0.17"
+```
+
+### Tokio
+
+<Card title="Tokio" icon="bolt" href="https://tokio.rs">
+  Async runtime for building fast, reliable network applications
+</Card>
+
+**Features:**
+- Multi-threaded work-stealing scheduler
+- Async I/O with zero-cost futures
+- Timers and intervals for task scheduling
+- Channels for message passing
+- Synchronization primitives (Mutex, RwLock, Semaphore)
+
+```toml
+# From apps/daemon/Cargo.toml
+[dependencies]
+tokio = { version = "1", features = ["full", "sync", "parking_lot"] }
+tokio-util = { version = "0.7", features = ["io", "codec", "rt"] }
+```
+
+### Axum
+
+<Card title="Axum" icon="server" href="https://github.com/tokio-rs/axum">
+  Ergonomic web framework built on Tokio and Hyper
+</Card>
+
+**Why Axum?**
+- Built by the Tokio team
+- Type-safe routing with extractors
+- WebSocket support
+- Tower middleware ecosystem
+- Excellent compile-time error messages
+
+```toml
+# From apps/daemon/Cargo.toml
+[dependencies]
+axum = { version = "0.7", features = ["ws", "multipart", "tokio"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "timeout"] }
+```
+
+### SFTP Server (russh)
+
+<Card title="russh" icon="terminal" href="https://github.com/warp-tech/russh">
+  SSH and SFTP server implementation in Rust
+</Card>
+
+Provides SFTP access for file transfers:
+
+```toml
+# From apps/daemon/Cargo.toml
+[dependencies]
+russh = "0.46"
+russh-sftp = "2.0"
+russh-keys = "0.46"
+```
+
+### Key Dependencies
+
+<Tabs>
+  <Tab title="Async Runtime">
+    ```toml
+    tokio = { version = "1", features = ["full", "sync", "parking_lot"] }
+    tokio-util = { version = "0.7", features = ["io", "codec", "rt"] }
+    futures = "0.3"
+    futures-util = "0.3"
+    async-trait = "0.1"
+    ```
+  </Tab>
+  
+  <Tab title="Web Framework">
+    ```toml
+    axum = { version = "0.7", features = ["ws", "multipart", "tokio"] }
+    axum-extra = { version = "0.9", features = ["typed-header"] }
+    tower = "0.4"
+    tower-http = { version = "0.5", features = ["cors", "trace", "request-id", "timeout"] }
+    ```
+  </Tab>
+  
+  <Tab title="Docker & Containers">
+    ```toml
+    bollard = "0.17"
+    serde = { version = "1", features = ["derive"] }
+    serde_json = "1"
+    ```
+  </Tab>
+  
+  <Tab title="SFTP Server">
+    ```toml
+    russh = "0.46"
+    russh-sftp = "2.0"
+    russh-keys = "0.46"
+    ```
+  </Tab>
+  
+  <Tab title="Logging & Monitoring">
+    ```toml
+    tracing = "0.1"
+    tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+    sysinfo = "0.32"
+    ```
+  </Tab>
+  
+  <Tab title="Utilities">
+    ```toml
+    uuid = { version = "1", features = ["v4", "serde"] }
+    chrono = { version = "0.4", features = ["serde"] }
+    anyhow = "1"
+    thiserror = "1"
+    clap = { version = "4", features = ["derive", "env"] }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Infrastructure
+
+Monorepo tooling and development infrastructure.
+
+### pnpm
+
+<Card title="pnpm" icon="box" href="https://pnpm.io">
+  Fast, disk-efficient package manager
+</Card>
+
+**Why pnpm?**
+- Uses a content-addressable store (saves disk space)
+- Strict dependency resolution (prevents phantom dependencies)
+- Up to 2x faster than npm
+- Native monorepo support with workspaces
+
+```json
+// From package.json
+{
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=20"
+  }
+}
+```
+
+### Turborepo
+
+<Card title="Turborepo" icon="rocket" href="https://turbo.build">
+  High-performance build system for monorepos
+</Card>
+
+**Features:**
+- Intelligent task caching
+- Parallel execution with dependency awareness
+- Remote caching for CI/CD
+- Incremental builds
+
+```json
+// From package.json
+{
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.5"
+  }
+}
+```
+
+### PostgreSQL
+
+<Card title="PostgreSQL" icon="database" href="https://postgresql.org">
+  Advanced open-source relational database
+</Card>
+
+**Why PostgreSQL?**
+- ACID compliance and strong consistency
+- Excellent JSON support (`jsonb` type)
+- Full-text search capabilities
+- Mature ecosystem with great tooling
+- Horizontal scaling with read replicas
+
+### Docker Compose
+
+<Card title="Docker Compose" icon="docker" href="https://docs.docker.com/compose">
+  Multi-container orchestration for local development
+</Card>
+
+Simplifies running the full stack locally:
+
+```yaml
+# docker-compose.yml (conceptual)
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: stellarstack
+      POSTGRES_USER: stellarstack
+      POSTGRES_PASSWORD: stellarstack
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  
+  api:
+    build: ./apps/api
+    environment:
+      DATABASE_URL: postgresql://stellarstack:stellarstack@postgres:5432/stellarstack
+      BETTER_AUTH_SECRET: dev-secret-change-in-production
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+  
+  web:
+    build: ./apps/web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:
+```
+
+---
+
+## DevOps
+
+### GitHub Actions
+
+<Card title="GitHub Actions" icon="github" href="https://github.com/features/actions">
+  CI/CD for automated testing, building, and deployment
+</Card>
+
+**Workflows:**
+- Docker image builds for API, web, and daemon
+- Automated releases with changelog generation
+- Linting and type checking on PRs
+- Dependency updates with Dependabot
+
+### release-please
+
+<Card title="release-please" icon="tag" href="https://github.com/googleapis/release-please">
+  Automated changelog and version management
+</Card>
+
+**Features:**
+- Parses Conventional Commits to determine version bump
+- Generates changelog from commit messages
+- Creates GitHub releases automatically
+- Supports monorepos with independent versioning
+
+### commitlint
+
+<Card title="commitlint" icon="check" href="https://commitlint.js.org">
+  Enforces Conventional Commit format
+</Card>
+
+```json
+// From package.json
+{
+  "devDependencies": {
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
+  }
+}
+```
+
+Commit format:
+```bash
+feat: STE-123 add user authentication
+fix: STE-456 resolve database connection timeout
+docs: STE-789 update installation guide
+```
+
+---
+
+## Security
+
+StellarStack takes security seriously with multiple layers of protection.
+
+<CardGroup cols={2}>
+  <Card title="bcrypt password hashing" icon="lock">
+    Industry-standard hashing with cost factor 10
+  </Card>
+  <Card title="AES-256-CBC encryption" icon="key">
+    For sensitive data at rest (API keys, tokens)
+  </Card>
+  <Card title="Rate limiting" icon="shield">
+    Protection against brute-force attacks
+  </Card>
+  <Card title="CSRF protection" icon="shield-check">
+    All state-changing requests require CSRF tokens
+  </Card>
+  <Card title="Security headers" icon="helmet">
+    CSP, X-Frame-Options, HSTS, X-Content-Type-Options
+  </Card>
+  <Card title="Docker isolation" icon="docker">
+    Each game server runs in its own container
+  </Card>
+</CardGroup>
+
+---
+
+## Version information
+
+<Note>
+  **Current version:** 1.3.9 (Alpha)
+  
+  Version is managed automatically by release-please based on Conventional Commits.
+</Note>
+
+```json
+// From package.json
+{
+  "name": "stellarstack",
+  "version": "1.3.9",
+  "private": true
+}
+```
+
+---
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="How It Works" icon="book" href="/how-it-works">
+    Learn about the daemon-per-node architecture
+  </Card>
+  <Card title="Installation" icon="download" href="/getting-started/installation">
+    Get StellarStack running on your infrastructure
+  </Card>
+</CardGroup>

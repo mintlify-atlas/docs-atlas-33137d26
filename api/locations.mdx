@@ -1,0 +1,333 @@
+---
+title: 'Locations'
+description: 'Manage geographic locations for organizing nodes'
+---
+
+## List Locations
+
+<CodeGroup>
+```http GET /api/locations
+GET /api/locations
+```
+</CodeGroup>
+
+List all locations. Public endpoint - no authentication required.
+
+### Response
+
+<ResponseField name="locations" type="array">
+  Array of location objects
+  
+  <Expandable title="Location Object">
+    <ResponseField name="id" type="string">Location UUID</ResponseField>
+    <ResponseField name="name" type="string">Location name</ResponseField>
+    <ResponseField name="description" type="string">Location description</ResponseField>
+    <ResponseField name="country" type="string">Country code (e.g., "US")</ResponseField>
+    <ResponseField name="city" type="string">City name</ResponseField>
+    <ResponseField name="createdAt" type="string">ISO 8601 timestamp</ResponseField>
+    <ResponseField name="updatedAt" type="string">ISO 8601 timestamp</ResponseField>
+    <ResponseField name="_count" type="object">Resource counts</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "loc-1",
+    "name": "New York",
+    "description": "US East Coast datacenter",
+    "country": "US",
+    "city": "New York",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "_count": {
+      "nodes": 3
+    }
+  },
+  {
+    "id": "loc-2",
+    "name": "London",
+    "description": "EU datacenter",
+    "country": "GB",
+    "city": "London",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "_count": {
+      "nodes": 2
+    }
+  }
+]
+```
+</ResponseExample>
+
+---
+
+## Get Location
+
+<CodeGroup>
+```http GET /api/locations/:id
+GET /api/locations/{id}
+```
+</CodeGroup>
+
+Get detailed information about a specific location.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Location UUID
+</ParamField>
+
+### Response
+
+Returns a detailed location object including associated nodes.
+
+<ResponseExample>
+```json
+{
+  "id": "loc-1",
+  "name": "New York",
+  "description": "US East Coast datacenter",
+  "country": "US",
+  "city": "New York",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "updatedAt": "2024-01-01T00:00:00Z",
+  "nodes": [
+    {
+      "id": "node-1",
+      "displayName": "US East 1",
+      "isOnline": true,
+      "lastHeartbeat": "2024-01-15T12:00:00Z"
+    },
+    {
+      "id": "node-2",
+      "displayName": "US East 2",
+      "isOnline": true,
+      "lastHeartbeat": "2024-01-15T12:01:00Z"
+    }
+  ]
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `404` - Location not found
+
+---
+
+## Create Location
+
+<CodeGroup>
+```http POST /api/locations
+POST /api/locations
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Create a new location. Admin only.
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Location name (1-100 characters)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Location description
+</ParamField>
+
+<ParamField body="country" type="string">
+  Country code (e.g., "US", "GB", "DE")
+</ParamField>
+
+<ParamField body="city" type="string">
+  City name
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "name": "Tokyo",
+  "description": "Asia Pacific datacenter",
+  "country": "JP",
+  "city": "Tokyo"
+}
+```
+</RequestExample>
+
+### Response
+
+Returns the created location object with status 201.
+
+<ResponseExample>
+```json
+{
+  "id": "loc-3",
+  "name": "Tokyo",
+  "description": "Asia Pacific datacenter",
+  "country": "JP",
+  "city": "Tokyo",
+  "createdAt": "2024-01-15T12:00:00Z",
+  "updatedAt": "2024-01-15T12:00:00Z"
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Validation failed
+
+---
+
+## Update Location
+
+<CodeGroup>
+```http PATCH /api/locations/:id
+PATCH /api/locations/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Update an existing location. Admin only.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Location UUID
+</ParamField>
+
+### Authentication
+
+Requires admin role.
+
+### Request Body
+
+All fields are optional. Only include fields you want to update.
+
+<ParamField body="name" type="string">
+  Location name (1-100 characters)
+</ParamField>
+
+<ParamField body="description" type="string">
+  Location description
+</ParamField>
+
+<ParamField body="country" type="string">
+  Country code
+</ParamField>
+
+<ParamField body="city" type="string">
+  City name
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "description": "Updated datacenter description",
+  "city": "Tokyo"
+}
+```
+</RequestExample>
+
+### Response
+
+Returns the updated location object.
+
+<ResponseExample>
+```json
+{
+  "id": "loc-3",
+  "name": "Tokyo",
+  "description": "Updated datacenter description",
+  "country": "JP",
+  "city": "Tokyo",
+  "createdAt": "2024-01-15T12:00:00Z",
+  "updatedAt": "2024-01-15T12:05:00Z"
+}
+```
+</ResponseExample>
+
+### Errors
+
+- `400` - Validation failed
+- `404` - Location not found
+
+---
+
+## Delete Location
+
+<CodeGroup>
+```http DELETE /api/locations/:id
+DELETE /api/locations/{id}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Delete a location. Cannot delete locations with associated nodes. Admin only.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Location UUID
+</ParamField>
+
+### Authentication
+
+Requires admin role.
+
+### Response
+
+```json
+{ "success": true }
+```
+
+### Errors
+
+- `400` - Location has associated nodes
+- `404` - Location not found
+
+---
+
+## Usage Example
+
+Here's a typical workflow for setting up a new datacenter location:
+
+```bash
+# 1. Create a location
+curl -X POST https://api.stellarstack.io/api/locations \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Singapore",
+    "description": "Southeast Asia datacenter",
+    "country": "SG",
+    "city": "Singapore"
+  }'
+
+# Response: { "id": "loc-sg-1", ... }
+
+# 2. Create a node in this location
+curl -X POST https://api.stellarstack.io/api/nodes \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "displayName": "SG Node 1",
+    "host": "node1.sg.example.com",
+    "port": 8080,
+    "locationId": "loc-sg-1",
+    "memoryLimit": 34359738368,
+    "diskLimit": 107374182400,
+    "cpuLimit": 8
+  }'
+
+# 3. List all locations to verify
+curl https://api.stellarstack.io/api/locations
+```

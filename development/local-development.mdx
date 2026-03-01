@@ -1,0 +1,486 @@
+---
+title: Local Development Setup
+description: Set up StellarStack for local development with step-by-step instructions
+---
+
+This guide will help you set up StellarStack for local development on your machine.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<CardGroup cols={2}>
+  <Card title="Node.js 20+" icon="node">
+    Download from [nodejs.org](https://nodejs.org/)
+  </Card>
+  
+  <Card title="pnpm 8+" icon="box">
+    Install with `npm install -g pnpm`
+  </Card>
+  
+  <Card title="PostgreSQL 15+" icon="database">
+    Download from [postgresql.org](https://postgresql.org/)
+  </Card>
+  
+  <Card title="Docker" icon="docker">
+    Download from [docker.com](https://docker.com/) (for daemon testing)
+  </Card>
+</CardGroup>
+
+Additionally, you'll need:
+- **Git** for version control
+- A code editor (VS Code recommended)
+
+## Development Setup
+
+<Steps>
+  <Step title="Fork the repository">
+    Fork the StellarStack repository on GitHub to your account:
+    
+    ```bash
+    # Navigate to:
+    https://github.com/StellarStackOSS/StellarStack
+    # Click "Fork" button
+    ```
+  </Step>
+  
+  <Step title="Clone your fork">
+    Clone your forked repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/stellarstack.git
+    cd stellarstack
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    Install all workspace dependencies using pnpm:
+    
+    ```bash
+    pnpm install
+    ```
+    
+    This will:
+    - Install dependencies for all apps and packages
+    - Set up Git hooks for commit linting
+    - Link workspace packages
+  </Step>
+  
+  <Step title="Set up environment variables">
+    Copy the example environment files and configure them:
+    
+    ```bash
+    # API environment
+    cp apps/api/.env.example apps/api/.env
+    
+    # Web panel environment
+    cp apps/web/.env.example apps/web/.env
+    ```
+    
+    **Configure `apps/api/.env`:**
+    
+    ```bash
+    # Database connection
+    DATABASE_URL="postgresql://user:password@localhost:5432/stellarstack"
+    
+    # Authentication secret (generate random 32+ characters)
+    BETTER_AUTH_SECRET="your-secret-key-here"
+    
+    # API URL
+    API_URL="http://localhost:3001"
+    
+    # Frontend URL
+    FRONTEND_URL="http://localhost:3000"
+    ```
+    
+    **Configure `apps/web/.env`:**
+    
+    ```bash
+    # API URL
+    NEXT_PUBLIC_API_URL="http://localhost:3001"
+    ```
+  </Step>
+  
+  <Step title="Set up the database">
+    Initialize the PostgreSQL database:
+    
+    ```bash
+    # Navigate to API directory
+    cd apps/api
+    
+    # Push schema to database
+    pnpm db:push
+    
+    # Generate Prisma client
+    pnpm db:generate
+    
+    # Return to root
+    cd ../..
+    ```
+    
+    <Note>
+    Make sure PostgreSQL is running and the database specified in `DATABASE_URL` exists. Create it with:
+    ```bash
+    createdb stellarstack
+    ```
+    </Note>
+  </Step>
+  
+  <Step title="Start development servers">
+    Start all development servers at once:
+    
+    ```bash
+    pnpm dev
+    ```
+    
+    This starts:
+    - **API Server**: http://localhost:3001
+    - **Web Panel**: http://localhost:3000
+    - **Docs Site**: http://localhost:3002
+    - **Landing Page**: http://localhost:3003
+    
+    Turborepo will show progress for each service in the terminal UI.
+  </Step>
+</Steps>
+
+## Accessing the Panel
+
+Once the development servers are running:
+
+<CardGroup cols={2}>
+  <Card title="Web Panel" icon="browser" href="http://localhost:3000">
+    Main application interface
+  </Card>
+  
+  <Card title="API Server" icon="server" href="http://localhost:3001">
+    Backend API endpoints
+  </Card>
+  
+  <Card title="Documentation" icon="book" href="http://localhost:3002">
+    Documentation site
+  </Card>
+  
+  <Card title="Landing Page" icon="home" href="http://localhost:3003">
+    Marketing website
+  </Card>
+</CardGroup>
+
+## Development Workflow
+
+### Running Individual Services
+
+If you only need to work on specific apps:
+
+```bash
+# Run API server only
+pnpm --filter @workspace/api dev
+
+# Run web panel only
+pnpm --filter web dev
+
+# Run docs only
+pnpm --filter docs dev
+```
+
+### Database Operations
+
+**View database schema:**
+```bash
+cd apps/api
+pnpx prisma studio
+```
+
+This opens a visual database browser at http://localhost:5555
+
+**Create a migration:**
+```bash
+cd apps/api
+pnpm db:migrate
+```
+
+**Reset database:**
+```bash
+cd apps/api
+pnpm db:reset
+```
+
+### Code Quality Checks
+
+**Type checking:**
+```bash
+# Check all packages
+pnpm typecheck
+
+# Check specific package
+pnpm --filter web typecheck
+```
+
+**Linting:**
+```bash
+# Lint all packages
+pnpm lint
+
+# Lint specific package
+pnpm --filter @workspace/api lint
+
+# Fix linting issues
+pnpm lint --fix
+```
+
+**Formatting:**
+```bash
+# Format all files
+pnpm format
+
+# Check formatting without writing
+pnpm format:check
+```
+
+### Building for Production
+
+**Build all apps:**
+```bash
+pnpm build
+```
+
+**Build specific app:**
+```bash
+pnpm build:api
+pnpm build:web
+pnpm build:docs
+```
+
+**Start production build locally:**
+```bash
+# Build first
+pnpm build
+
+# Start API
+pnpm start:api
+
+# Start web (in another terminal)
+pnpm start:web
+```
+
+## Git Workflow
+
+### Creating a Branch
+
+```bash
+# Create a new feature branch
+git checkout -b feat/STE-123-add-new-feature
+
+# Or without Linear ticket
+git checkout -b feat/add-new-feature
+```
+
+### Making Commits
+
+Commits are automatically validated by Git hooks:
+
+```bash
+# Stage changes
+git add .
+
+# Commit with conventional format
+git commit -m "feat: STE-123 add webhook retry logic"
+
+# Or without Linear ticket
+git commit -m "feat: add webhook retry logic"
+```
+
+<Note>
+**Automatic Formatting**: Git hooks automatically format staged files with Prettier before committing.
+</Note>
+
+### Keeping Your Fork Updated
+
+```bash
+# Add upstream remote (one time)
+git remote add upstream https://github.com/StellarStackOSS/StellarStack.git
+
+# Fetch latest changes
+git fetch upstream
+
+# Rebase your branch
+git rebase upstream/main
+```
+
+## Testing Your Changes
+
+Before submitting a pull request:
+
+<Steps>
+  <Step title="Run type checking">
+    ```bash
+    pnpm typecheck
+    ```
+    Ensure no TypeScript errors.
+  </Step>
+  
+  <Step title="Run linting">
+    ```bash
+    pnpm lint
+    ```
+    Fix any linting issues.
+  </Step>
+  
+  <Step title="Test in development">
+    ```bash
+    pnpm dev
+    ```
+    Manually test your changes in the development environment.
+  </Step>
+  
+  <Step title="Test production build">
+    ```bash
+    pnpm build
+    pnpm start:api &
+    pnpm start:web
+    ```
+    Verify your changes work in production mode.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you get "port already in use" errors:
+
+```bash
+# Find and kill process on port 3000
+lsof -ti:3000 | xargs kill -9
+
+# Or use different port
+PORT=3005 pnpm dev
+```
+
+### Database Connection Issues
+
+**Verify PostgreSQL is running:**
+```bash
+pg_isready
+```
+
+**Check connection string:**
+Ensure `DATABASE_URL` in `apps/api/.env` is correct:
+```bash
+DATABASE_URL="postgresql://user:password@localhost:5432/stellarstack"
+```
+
+**Reset database:**
+```bash
+cd apps/api
+pnpm db:reset
+```
+
+### Dependency Issues
+
+**Clear and reinstall:**
+```bash
+# Remove all node_modules
+rm -rf node_modules apps/*/node_modules packages/*/node_modules
+
+# Clear pnpm cache
+pnpm store prune
+
+# Reinstall
+pnpm install
+```
+
+### Build Errors
+
+**Clear Turborepo cache:**
+```bash
+pnpm turbo clean
+```
+
+**Clear Next.js cache:**
+```bash
+rm -rf apps/web/.next
+rm -rf apps/home/.next
+```
+
+### Type Generation Issues
+
+If TypeScript can't find types:
+
+```bash
+# Regenerate Prisma client
+cd apps/api
+pnpm db:generate
+
+# Rebuild all packages
+cd ../..
+pnpm build
+```
+
+## Docker Development (Optional)
+
+For testing the full stack with Docker:
+
+```bash
+# Start all services with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+## IDE Setup (VS Code)
+
+Recommended extensions:
+
+- **ESLint**: `dbaeumer.vscode-eslint`
+- **Prettier**: `esbenp.prettier-vscode`
+- **Prisma**: `Prisma.prisma`
+- **Tailwind CSS IntelliSense**: `bradlc.vscode-tailwindcss`
+- **TypeScript**: Built-in
+
+**Workspace settings (`.vscode/settings.json`):**
+```json
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
+```
+
+## Next Steps
+
+Now that you have a local development environment:
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/development/architecture">
+    Learn how StellarStack is architected
+  </Card>
+  
+  <Card title="Monorepo Structure" icon="folder-tree" href="/development/monorepo-structure">
+    Understand the monorepo organization
+  </Card>
+  
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Read the contribution guidelines
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore the API documentation
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+If you encounter issues:
+
+- **GitHub Issues**: Report bugs or ask questions
+- **GitHub Discussions**: Community help and discussions
+- **Discord**: Real-time chat with contributors
+- **Linear**: Track development progress at [linear.app/stellarstack](https://linear.app/stellarstack)

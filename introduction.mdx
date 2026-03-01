@@ -1,0 +1,149 @@
+---
+title: Introduction
+description: A modern, open-source game server management panel built for the modern era
+---
+
+<img
+  className="block dark:hidden"
+  src="https://f005.backblazeb2.com/file/stellarstack/stellar-stack.png"
+  alt="StellarStack Logo"
+  width="150"
+  height="150"
+/>
+<img
+  className="hidden dark:block"
+  src="https://f005.backblazeb2.com/file/stellarstack/stellar-stack.png"
+  alt="StellarStack Logo"
+  width="150"
+  height="150"
+/>
+
+# Welcome to StellarStack
+
+StellarStack is an open-source game server hosting panel built for the modern era. Manage Minecraft, Terraria, Valheim, and more from a unified interface with real-time monitoring, automated backups, and granular permissions.
+
+Self-host on your infrastructure or deploy to the cloud. Your servers, your control.
+
+<Warning>
+  **Alpha Software: Not Production Ready**
+  
+  StellarStack is in active development and should NOT be used in production environments. Expect breaking changes, incomplete features, and potential data loss. Use at your own risk.
+</Warning>
+
+## The problem
+
+Game server hosting hasn't evolved with the rest of web infrastructure. Most panels are:
+
+- **Single-server focused** - Managing 10+ servers means juggling 10+ tabs
+- **Feature-frozen** - Built on PHP codebases from 2010, resistant to change
+- **Permission-limited** - Either full admin access or nothing
+- **Backup-neglected** - Manual backups or expensive third-party solutions
+- **Mobile-unfriendly** - Designed for desktop in a mobile-first world
+
+Meanwhile, Vercel revolutionized web deployment. Kubernetes transformed container orchestration. Why are game servers stuck in the past?
+
+## The vision
+
+StellarStack applies modern infrastructure patterns to game server management:
+
+<CardGroup cols={2}>
+  <Card title="Multi-server by design" icon="server">
+    Unified dashboard for all your servers across multiple nodes
+  </Card>
+  <Card title="Permission-granular" icon="shield">
+    45+ permission nodes for precise access control
+  </Card>
+  <Card title="Automation-first" icon="robot">
+    Scheduled backups, tasks, webhooks, and event triggers
+  </Card>
+  <Card title="Real-time everything" icon="bolt">
+    WebSocket-powered console, stats, and notifications
+  </Card>
+  <Card title="API-driven" icon="code">
+    REST API with full panel feature parity
+  </Card>
+  <Card title="Self-hostable" icon="house">
+    Your hardware, your data, your rules
+  </Card>
+</CardGroup>
+
+## Core features
+
+<Tabs>
+  <Tab title="Server Management">
+    - Multi-server dashboard with unified control panel
+    - Real-time console with WebSocket updates
+    - Power controls (start, stop, restart, kill)
+    - Resource monitoring (CPU, memory, disk, network)
+    - File manager with code editor
+    - SFTP access for direct file transfers
+  </Tab>
+  <Tab title="Automation & Backups">
+    - Scheduled backups with customizable intervals
+    - Retention policies for automatic cleanup
+    - One-click restore from any backup
+    - Task scheduling with cron expressions
+    - Webhooks for external integrations
+  </Tab>
+  <Tab title="User Management">
+    - Granular permissions system (45+ permission nodes)
+    - Subuser invites with custom access levels
+    - OAuth integration (Google, GitHub, Discord)
+    - Two-factor authentication (2FA)
+    - Passkey support for passwordless login
+  </Tab>
+  <Tab title="Administration">
+    - Multi-node management
+    - Location grouping (US-East, EU-West, etc.)
+    - Blueprint system for server templates
+    - Automatic IP and port allocation
+    - White-label branding support
+  </Tab>
+</Tabs>
+
+## Key concepts
+
+<AccordionGroup>
+  <Accordion title="Servers" icon="gamepad">
+    Individual game server instances running in Docker containers. Each server is isolated with its own resources, port allocations, and file system.
+  </Accordion>
+  <Accordion title="Nodes" icon="server">
+    Physical or virtual machines running the Rust daemon. Each node can host multiple servers and reports resource usage to the central API.
+  </Accordion>
+  <Accordion title="Locations" icon="location-dot">
+    Logical grouping of nodes for organization (e.g., "US-East", "EU-West", "Asia-Pacific"). Helps users deploy servers close to their player base.
+  </Accordion>
+  <Accordion title="Blueprints" icon="blueprint">
+    Pre-configured templates for common game servers (Minecraft, Terraria, Valheim). Includes startup commands, port configurations, and resource limits.
+  </Accordion>
+  <Accordion title="Subusers" icon="users">
+    Invite players or team members with custom permissions. Grant console access, file manager, backups, or full admin rights per server.
+  </Accordion>
+</AccordionGroup>
+
+## Getting started
+
+Ready to get started? Choose your path:
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/getting-started/installation">
+    Install StellarStack on Ubuntu with our one-command installer
+  </Card>
+  <Card title="How It Works" icon="book" href="/how-it-works">
+    Learn about the daemon-per-node architecture
+  </Card>
+  <Card title="Tech Stack" icon="layer-group" href="/tech-stack">
+    Explore the modern technologies powering StellarStack
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Build integrations with our REST API
+  </Card>
+</CardGroup>
+
+## Open source and MIT licensed
+
+StellarStack is fully open source under the MIT License. You're free to use, modify, and distribute it for personal or commercial purposes.
+
+<Card title="View on GitHub" icon="github" href="https://github.com/StellarStackOSS/StellarStack">
+  Star the repository, report issues, or contribute to the project
+</Card>

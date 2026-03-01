@@ -1,0 +1,482 @@
+---
+title: OAuth Authentication
+description: Configure Google, GitHub, and Discord OAuth providers for easy sign-in
+---
+
+OAuth allows users to sign in using their existing Google, GitHub, or Discord accounts. This simplifies authentication and leverages the security features of these platforms, including their built-in two-factor authentication.
+
+## Supported Providers
+
+StellarStack supports three OAuth providers:
+
+- **Google** - Best for general users, widely adopted
+- **GitHub** - Ideal for developer-focused communities
+- **Discord** - Perfect for gaming communities
+
+Users can link multiple OAuth providers to a single StellarStack account.
+
+## How OAuth Works
+
+When a user signs in with OAuth:
+
+1. They click "Sign in with Google/GitHub/Discord"
+2. They're redirected to the provider's authorization page
+3. After granting permission, they're redirected back to StellarStack
+4. StellarStack creates an account or links to an existing account based on email
+5. The user is logged in automatically
+
+<Note>
+  If a user signs in with Google using `user@example.com` and an account already exists with that email, the accounts will be linked automatically.
+</Note>
+
+## Google OAuth Setup
+
+<Steps>
+  <Step title="Create a Google Cloud Project">
+    Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project or select an existing one.
+  </Step>
+  
+  <Step title="Enable Google+ API">
+    Navigate to "APIs & Services" > "Library" and search for "Google+ API". Click "Enable".
+    
+    <Note>
+      The Google+ API is required for OAuth even though Google+ has been shut down. It provides the user profile endpoints.
+    </Note>
+  </Step>
+  
+  <Step title="Configure OAuth Consent Screen">
+    Go to "APIs & Services" > "OAuth consent screen":
+    
+    - Select "External" for user type (unless you have a Google Workspace)
+    - Enter your app name (e.g., "StellarStack Panel")
+    - Add your support email
+    - Add your domain to "Authorized domains"
+    - Add your privacy policy and terms of service URLs (if applicable)
+  </Step>
+  
+  <Step title="Create OAuth Credentials">
+    Go to "APIs & Services" > "Credentials" and click "Create Credentials" > "OAuth client ID":
+    
+    - Application type: "Web application"
+    - Name: "StellarStack Web Client"
+    - Authorized JavaScript origins: Add your frontend URL
+      ```
+      https://panel.yourdomain.com
+      ```
+    - Authorized redirect URIs: Add your API callback URL
+      ```
+      https://api.yourdomain.com/api/auth/callback/google
+      ```
+  </Step>
+  
+  <Step title="Copy Client ID and Secret">
+    After creating the credentials, you'll see your Client ID and Client Secret. Copy these values.
+  </Step>
+  
+  <Step title="Add to Environment Variables">
+    Add these to your API's `.env` file:
+    
+    ```bash
+    GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+    GOOGLE_CLIENT_SECRET=your-client-secret
+    ```
+  </Step>
+  
+  <Step title="Restart the API Server">
+    Restart your API service to load the new environment variables:
+    
+    ```bash
+    # Docker Compose
+    docker-compose restart api
+    
+    # Development
+    pnpm --filter @stellarstack/api dev
+    ```
+  </Step>
+</Steps>
+
+### Google OAuth URLs
+
+- **Authorized JavaScript origins**: Where your frontend is hosted
+- **Authorized redirect URIs**: `{API_URL}/api/auth/callback/google`
+
+<Warning>
+  The redirect URI must match exactly. Include the protocol (`https://`), don't add trailing slashes, and use the correct port if applicable.
+</Warning>
+
+## GitHub OAuth Setup
+
+<Steps>
+  <Step title="Register OAuth Application">
+    Go to [GitHub Developer Settings](https://github.com/settings/developers) and click "New OAuth App".
+  </Step>
+  
+  <Step title="Configure Application Details">
+    Fill in the application form:
+    
+    - **Application name**: StellarStack Panel
+    - **Homepage URL**: Your panel URL
+      ```
+      https://panel.yourdomain.com
+      ```
+    - **Authorization callback URL**: Your API callback URL
+      ```
+      https://api.yourdomain.com/api/auth/callback/github
+      ```
+    - **Application description**: (Optional) "Game server management panel"
+  </Step>
+  
+  <Step title="Generate Client Secret">
+    After creating the application, click "Generate a new client secret" and copy the value immediately (it won't be shown again).
+  </Step>
+  
+  <Step title="Copy Client ID">
+    Copy the Client ID from the application page.
+  </Step>
+  
+  <Step title="Add to Environment Variables">
+    Add these to your API's `.env` file:
+    
+    ```bash
+    GITHUB_CLIENT_ID=your-github-client-id
+    GITHUB_CLIENT_SECRET=your-github-client-secret
+    ```
+  </Step>
+  
+  <Step title="Restart the API Server">
+    Restart your API service to apply the changes:
+    
+    ```bash
+    docker-compose restart api
+    ```
+  </Step>
+</Steps>
+
+### GitHub OAuth Scopes
+
+StellarStack requests these scopes:
+
+- `user:email` - Access to email addresses
+- `read:user` - Read user profile information
+
+No write access or repository permissions are requested.
+
+## Discord OAuth Setup
+
+<Steps>
+  <Step title="Create Discord Application">
+    Go to the [Discord Developer Portal](https://discord.com/developers/applications) and click "New Application".
+  </Step>
+  
+  <Step title="Name Your Application">
+    Give it a name like "StellarStack" and click "Create".
+  </Step>
+  
+  <Step title="Configure OAuth2 Settings">
+    Navigate to "OAuth2" in the left sidebar and add a redirect:
+    
+    - Click "Add Redirect" under "Redirects"
+    - Enter: `https://api.yourdomain.com/api/auth/callback/discord`
+    - Click "Save Changes"
+  </Step>
+  
+  <Step title="Copy Client ID and Secret">
+    On the same OAuth2 page:
+    
+    - Copy the "Client ID"
+    - Click "Reset Secret" to generate a new client secret
+    - Copy the client secret (it will only be shown once)
+  </Step>
+  
+  <Step title="Add to Environment Variables">
+    Add these to your API's `.env` file:
+    
+    ```bash
+    DISCORD_CLIENT_ID=your-discord-client-id
+    DISCORD_CLIENT_SECRET=your-discord-client-secret
+    ```
+  </Step>
+  
+  <Step title="Restart the API Server">
+    Restart your API service:
+    
+    ```bash
+    docker-compose restart api
+    ```
+  </Step>
+</Steps>
+
+### Discord OAuth Scopes
+
+StellarStack requests:
+
+- `identify` - Access to username, avatar, and discriminator
+- `email` - Access to email address
+
+<Tip>
+  Discord OAuth is particularly useful for gaming communities where many players already have Discord accounts.
+</Tip>
+
+## Environment Variables Reference
+
+All OAuth configuration happens through environment variables in your API service:
+
+```bash
+# Google OAuth
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# GitHub OAuth  
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# Discord OAuth
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_CLIENT_SECRET=your-discord-client-secret
+
+# Required for OAuth callbacks
+API_URL=https://api.yourdomain.com
+FRONTEND_URL=https://panel.yourdomain.com
+```
+
+<Note>
+  OAuth providers are automatically enabled when their client ID is set. If an environment variable is missing or empty, that provider won't appear on the login page.
+</Note>
+
+## Testing OAuth Configuration
+
+<Steps>
+  <Step title="Verify Provider Appears">
+    Navigate to your login page. You should see buttons for each configured OAuth provider.
+  </Step>
+  
+  <Step title="Test Sign In Flow">
+    Click an OAuth provider button and verify:
+    
+    - You're redirected to the provider's authorization page
+    - The app name and permissions match what you configured
+    - After authorizing, you're redirected back to StellarStack
+    - Your account is created or you're logged in
+  </Step>
+  
+  <Step title="Check Account Linking">
+    If you already have an account with the same email, verify it's linked correctly:
+    
+    - Go to account settings
+    - Check the "Connected Accounts" section
+    - Your OAuth provider should be listed
+  </Step>
+  
+  <Step title="Test Unlinking and Relinking">
+    Try disconnecting and reconnecting an OAuth provider to ensure the flow works in both directions.
+  </Step>
+</Steps>
+
+## Account Linking
+
+Users can link multiple authentication methods to their account:
+
+### Linking Additional Providers
+
+1. Log in with any method (email/password or OAuth)
+2. Go to account settings
+3. Click "Connect" next to the provider you want to link
+4. Authorize the connection
+
+<Note>
+  If the OAuth account email matches your StellarStack email, it will link automatically. If the emails differ, you'll need to verify ownership of both accounts.
+</Note>
+
+### Unlinking Providers
+
+To remove an OAuth connection:
+
+1. Go to account settings
+2. Find the connected provider
+3. Click "Disconnect"
+
+<Warning>
+  You must have at least one authentication method. You cannot unlink your last OAuth provider unless you have a password set, or unlink your email/password if it's your only auth method.
+</Warning>
+
+## Security Considerations
+
+### OAuth vs. Email/Password
+
+**OAuth Benefits:**
+- Leverages provider's security infrastructure
+- No password to remember or store
+- Automatically gets provider's 2FA protection
+- Faster sign-in experience
+
+**OAuth Risks:**
+- Dependency on third-party service
+- Account compromise if provider account is compromised
+- Less control over authentication flow
+
+<Tip>
+  Encourage users to enable 2FA on their OAuth provider accounts (Google, GitHub, Discord) for maximum security.
+</Tip>
+
+### Protecting Client Secrets
+
+- **Never commit secrets to version control** - Use `.env` files and `.gitignore`
+- **Rotate secrets periodically** - Generate new client secrets every 6-12 months
+- **Restrict access** - Only administrators should have access to OAuth credentials
+- **Use environment-specific credentials** - Different secrets for dev, staging, and production
+
+### Redirect URI Validation
+
+OAuth providers validate redirect URIs to prevent authorization code interception:
+
+- Use exact matches (no wildcards)
+- Always use HTTPS in production (required by most providers)
+- Don't use localhost or IP addresses in production configurations
+- Keep your authorized redirect list minimal
+
+<Warning>
+  If your redirect URI changes (e.g., domain migration), you must update it in every OAuth provider's console. Users will get authorization errors until you update this.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="OAuth button doesn't appear">
+    **Cause**: Missing or incorrect environment variables.
+    
+    **Solution**: 
+    1. Verify `GOOGLE_CLIENT_ID`, `GITHUB_CLIENT_ID`, or `DISCORD_CLIENT_ID` is set in your API's `.env` file
+    2. Restart the API server after adding variables
+    3. Check API logs for configuration errors
+  </Accordion>
+  
+  <Accordion title="Redirect URI mismatch error">
+    **Cause**: The callback URL in your provider console doesn't match the actual redirect.
+    
+    **Solution**:
+    1. Check your `API_URL` environment variable
+    2. Verify the redirect URI in the provider console is exactly: `{API_URL}/api/auth/callback/{provider}`
+    3. Ensure no trailing slashes
+    4. Confirm you're using the correct protocol (http vs https)
+  </Accordion>
+  
+  <Accordion title="Email already in use error">
+    **Cause**: An account exists with that email using a different authentication method.
+    
+    **Solution**:
+    1. Log in with the existing authentication method
+    2. Go to account settings and link the OAuth provider
+    3. Then you can use either method to log in
+  </Accordion>
+  
+  <Accordion title="Invalid client error from provider">
+    **Cause**: Incorrect client ID or secret.
+    
+    **Solution**:
+    1. Double-check you copied the full client ID and secret
+    2. Verify no extra spaces or characters were copied
+    3. Regenerate the client secret if you're unsure
+    4. Update your `.env` file and restart the API
+  </Accordion>
+  
+  <Accordion title="Access denied error">
+    **Cause**: User declined authorization or consent screen not properly configured.
+    
+    **Solution**:
+    1. Ensure OAuth consent screen is published (not in testing mode)
+    2. Verify requested scopes are approved
+    3. For Google, check that Google+ API is enabled
+    4. Try again and click "Allow" when prompted
+  </Accordion>
+  
+  <Accordion title="User profile data not syncing">
+    **Cause**: Insufficient OAuth scopes or API permissions.
+    
+    **Solution**:
+    1. Verify you're requesting the correct scopes
+    2. For GitHub, ensure `user:email` and `read:user` are requested
+    3. For Discord, ensure `identify` and `email` are requested
+    4. Have the user disconnect and reconnect the provider
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Enable Multiple Providers">
+    Offer all three OAuth providers to accommodate different user preferences. Gaming communities appreciate Discord, developers prefer GitHub, and Google is universally recognized.
+  </Accordion>
+  
+  <Accordion title="Keep Email/Password Available">
+    Always offer email/password as a fallback. Some users prefer not to use OAuth, and it serves as a backup if a provider has an outage.
+  </Accordion>
+  
+  <Accordion title="Sync User Profiles">
+    When users authenticate via OAuth, update their profile with information from the provider (name, avatar). This creates a better user experience.
+  </Accordion>
+  
+  <Accordion title="Monitor OAuth Usage">
+    Track which OAuth providers your users prefer. If nobody uses a provider, you can consider deprecating it to reduce maintenance overhead.
+  </Accordion>
+  
+  <Accordion title="Document Provider Requirements">
+    If your StellarStack instance has specific requirements (e.g., GitHub organization membership), document this clearly on the login page.
+  </Accordion>
+  
+  <Accordion title="Test Provider Changes">
+    Before deploying OAuth configuration changes to production, test thoroughly in a staging environment to avoid disrupting user authentication.
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Configuration
+
+### Custom OAuth Scopes
+
+If you need additional user data, you can request more scopes by modifying the auth configuration in `apps/api/src/lib/auth.ts`. However, be mindful that:
+
+- Users may decline authorization if you request too many permissions
+- More scopes require more justification in OAuth consent screens
+- Some scopes require provider verification or approval
+
+### OAuth Provider Restrictions
+
+You can restrict OAuth to specific domains or organizations:
+
+**Google**: Use Google Workspace and configure allowed domains in the OAuth consent screen.
+
+**GitHub**: Check user's organization membership after authentication:
+
+```typescript
+// Example: Verify GitHub organization membership
+const orgs = await fetch('https://api.github.com/user/orgs', {
+  headers: { Authorization: `Bearer ${accessToken}` }
+}).then(r => r.json());
+
+if (!orgs.some(org => org.login === 'your-org')) {
+  throw new Error('Must be a member of the organization');
+}
+```
+
+**Discord**: Check user's server membership via Discord API after authentication.
+
+### Automatic Account Provisioning
+
+You can customize what happens when users first authenticate with OAuth:
+
+- Set default roles based on provider
+- Auto-grant permissions based on OAuth data
+- Assign users to specific servers or groups
+- Send welcome emails or notifications
+
+Modify the auth callback logic in your API to implement this behavior.
+
+## Migration Guide
+
+If you're migrating from another panel and want to preserve user accounts:
+
+1. Export user emails from your old system
+2. Create StellarStack accounts with those emails
+3. Send password reset emails to all users
+4. Users can set their password or link OAuth providers
+
+Alternatively, encourage users to register via OAuth for a smoother migration experience.

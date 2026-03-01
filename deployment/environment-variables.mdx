@@ -1,0 +1,308 @@
+---
+title: Environment Variables
+description: Complete reference for StellarStack environment variables
+---
+
+StellarStack uses environment variables for configuration. This guide covers all available variables.
+
+## Required Variables
+
+These variables are **required** for StellarStack to function:
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/db` |
+| `BETTER_AUTH_SECRET` | Session signing secret (32+ characters) | Generated automatically by installer |
+
+### Generating Secrets
+
+Generate a secure random secret:
+
+```bash
+openssl rand -base64 32
+```
+
+## Production Required Variables
+
+These variables are **required for production deployments** (not needed for local development):
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `FRONTEND_URL` | Panel URL (must not be localhost) | `https://panel.example.com` |
+| `API_URL` | API URL (must not be localhost) | `https://api.example.com` |
+| `DOWNLOAD_TOKEN_SECRET` | Secret for file download tokens | 32+ character random string |
+| `ENCRYPTION_KEY` | 32-byte hex key for AES-256-CBC encryption | 64 hex characters |
+| `JWT_SECRET` | JWT signing secret | 32+ character random string |
+
+### Generating Encryption Key
+
+Generate a 32-byte (64 hex character) encryption key:
+
+```bash
+openssl rand -hex 32
+```
+
+## OAuth Configuration (Optional)
+
+Enable OAuth authentication with external providers:
+
+### Google OAuth
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 client secret |
+
+**Setup:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create OAuth 2.0 credentials
+3. Set authorized redirect URI: `https://api.example.com/auth/google/callback`
+
+### GitHub OAuth
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_CLIENT_ID` | GitHub OAuth app client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth app client secret |
+
+**Setup:**
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Create new OAuth app
+3. Set callback URL: `https://api.example.com/auth/github/callback`
+
+### Discord OAuth
+
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_CLIENT_ID` | Discord OAuth application ID |
+| `DISCORD_CLIENT_SECRET` | Discord OAuth application secret |
+
+**Setup:**
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create new application
+3. Add redirect: `https://api.example.com/auth/discord/callback`
+
+## Database Configuration
+
+### PostgreSQL
+
+The `DATABASE_URL` connection string format:
+
+```
+postgresql://[user]:[password]@[host]:[port]/[database]?[parameters]
+```
+
+**Examples:**
+
+```bash
+# Local PostgreSQL
+DATABASE_URL="postgresql://stellar:password@localhost:5432/stellarstack"
+
+# Docker Compose service
+DATABASE_URL="postgresql://stellar:stellarpass@postgres:5432/stellar"
+
+# External database with SSL
+DATABASE_URL="postgresql://user:pass@db.example.com:5432/stellarstack?sslmode=require"
+```
+
+### Connection Pool Settings
+
+Optional Prisma connection pool parameters:
+
+```bash
+DATABASE_URL="postgresql://user:pass@host:5432/db?connection_limit=10&pool_timeout=10"
+```
+
+## Docker Configuration
+
+### Installer Variables
+
+These variables configure the Ubuntu installer script:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `INSTALL_DIR` | Installation directory | `/opt/stellarstack` |
+| `DOCKER_ORG` | Docker image organization | `stellarstackoss` |
+
+### Docker Images
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `API_IMAGE` | API Docker image | `stellarstackoss/stellarstack-api` |
+| `PANEL_IMAGE` | Panel Docker image | `stellarstackoss/stellarstack-web` |
+
+## Daemon Configuration
+
+For daemon (node) installations:
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `DAEMON_PANEL_URL` | API URL for daemon to connect | `https://api.example.com` |
+| `DAEMON_TOKEN_ID` | Token ID from panel | From panel > Nodes > Configure |
+| `DAEMON_TOKEN` | Full token string | From panel |
+| `DAEMON_PORT` | Daemon API port | `8080` |
+| `DAEMON_SFTP_PORT` | SFTP port for file transfers | `2022` |
+| `DAEMON_SSL_DOMAIN` | Domain for SSL (if enabled) | `node.example.com` |
+
+### Daemon Redis (Optional)
+
+| Variable | Description |
+|----------|-------------|
+| `DAEMON_REDIS_URL` | Redis connection string for daemon |
+
+Example: `redis://localhost:6379`
+
+## Server Configuration
+
+### Upload Limits
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `UPLOAD_LIMIT` | Max file upload size | `100M` |
+
+Configure in nginx as well:
+
+```nginx
+client_max_body_size 100M;
+```
+
+### Monitoring Domain
+
+| Variable | Description |
+|----------|-------------|
+| `MONITORING_DOMAIN` | Domain for Grafana/monitoring stack |
+
+Example: `monitoring.example.com`
+
+## Network Configuration
+
+### Docker Networks
+
+StellarStack uses two networks:
+
+1. **stellar_network** - For services (Panel, API, Database)
+   ```bash
+   docker network create stellar_network
+   ```
+
+2. **stellar** - For game server containers
+   ```bash
+   docker network create stellar --subnet=172.18.0.0/16 --gateway=172.18.0.1
+   ```
+
+## Development Variables
+
+For local development only:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `NODE_ENV` | Environment mode | `development` |
+| `DEBUG` | Enable debug logging | `false` |
+| `PORT` | API port (dev) | `3001` |
+| `NEXT_PUBLIC_API_URL` | API URL for Next.js | `http://localhost:3001` |
+
+## Example .env File
+
+### Minimum Configuration (Development)
+
+```bash
+# Database
+DATABASE_URL="postgresql://stellar:stellarpass@localhost:5432/stellarstack"
+
+# Authentication
+BETTER_AUTH_SECRET="your-32-character-secret-here-replace-this"
+```
+
+### Production Configuration
+
+```bash
+# Database
+DATABASE_URL="postgresql://stellar:securepassword@postgres:5432/stellar"
+
+# Authentication & Security
+BETTER_AUTH_SECRET="your-32-character-secret-here-replace-this"
+JWT_SECRET="another-32-character-secret-replace-this"
+DOWNLOAD_TOKEN_SECRET="download-token-secret-32-chars-replace"
+ENCRYPTION_KEY="64-hex-character-encryption-key-from-openssl-rand-hex-32"
+
+# URLs
+FRONTEND_URL="https://panel.example.com"
+API_URL="https://api.example.com"
+
+# OAuth (Optional)
+GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GITHUB_CLIENT_ID="your-github-client-id"
+GITHUB_CLIENT_SECRET="your-github-client-secret"
+DISCORD_CLIENT_ID="your-discord-client-id"
+DISCORD_CLIENT_SECRET="your-discord-client-secret"
+
+# Monitoring (Optional)
+MONITORING_DOMAIN="monitoring.example.com"
+
+# Upload Limit
+UPLOAD_LIMIT="100M"
+```
+
+### All-in-One Configuration
+
+```bash
+# Database
+DATABASE_URL="postgresql://stellar:securepassword@postgres:5432/stellar"
+
+# Authentication & Security
+BETTER_AUTH_SECRET="your-32-character-secret-here-replace-this"
+JWT_SECRET="another-32-character-secret-replace-this"
+DOWNLOAD_TOKEN_SECRET="download-token-secret-32-chars-replace"
+ENCRYPTION_KEY="64-hex-character-encryption-key-from-openssl-rand-hex-32"
+
+# URLs
+FRONTEND_URL="https://panel.example.com"
+API_URL="https://api.example.com"
+
+# Daemon Configuration
+DAEMON_PANEL_URL="https://api.example.com"
+DAEMON_TOKEN_ID="token-id-from-panel"
+DAEMON_TOKEN="full-token-string-from-panel"
+DAEMON_PORT="8080"
+DAEMON_SFTP_PORT="2022"
+DAEMON_SSL_DOMAIN="node.example.com"
+
+# Monitoring
+MONITORING_DOMAIN="monitoring.example.com"
+```
+
+## Security Best Practices
+
+<Warning>
+  Never commit `.env` files to version control. Add `.env` to `.gitignore`.
+</Warning>
+
+1. **Generate unique secrets** - Don't reuse secrets across environments
+2. **Use strong passwords** - Minimum 32 characters for secrets
+3. **Rotate secrets regularly** - Update secrets periodically
+4. **Restrict file permissions** - `chmod 600 .env`
+5. **Use environment-specific files** - `.env.production`, `.env.staging`
+
+## Verifying Configuration
+
+Check if all required variables are set:
+
+```bash
+# Check API configuration
+docker exec stellarstack-api env | grep -E '(DATABASE_URL|BETTER_AUTH_SECRET|API_URL)'
+
+# Check web configuration  
+docker exec stellarstack-web env | grep -E '(NEXT_PUBLIC_API_URL|FRONTEND_URL)'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose Setup" icon="docker" href="/deployment/docker-compose">
+    Deploy with Docker Compose
+  </Card>
+  <Card title="Production Checklist" icon="list-check" href="/deployment/production-checklist">
+    Production deployment guide
+  </Card>
+</CardGroup>

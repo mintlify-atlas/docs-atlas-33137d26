@@ -1,0 +1,144 @@
+---
+title: Self-Hosting Overview
+description: Learn about self-hosting options for StellarStack
+---
+
+StellarStack is designed to be self-hosted on your own infrastructure, giving you complete control over your game server management platform.
+
+## Deployment Options
+
+StellarStack offers several deployment options to fit your infrastructure needs:
+
+### 1. All-in-One Installation
+
+Complete StellarStack deployment on a single server:
+- Panel (Next.js web interface)
+- API (Hono backend)
+- Daemon (Rust game server manager)
+- PostgreSQL database
+- Optional monitoring stack (Prometheus, Loki, Grafana)
+
+**Best for:** Small to medium deployments, testing, or single-server setups
+
+### 2. Panel + API Installation
+
+Central control plane without the daemon:
+- Panel and API only
+- Connect to separate daemon nodes
+- Centralized management interface
+
+**Best for:** Multi-node deployments where game servers run on separate machines
+
+### 3. Component Installation
+
+Install individual components:
+- **Panel only** - Web interface connecting to remote API
+- **API only** - Backend service for multiple panel instances
+- **Daemon only** - Game server node connecting to remote API
+
+**Best for:** Distributed deployments, scaling specific components, or custom architectures
+
+## Installation Methods
+
+### Ubuntu Installer Script
+
+One-command installation for Ubuntu 22.04+:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/StellarStackOSS/StellarStack/master/install-script.sh | sudo bash
+```
+
+The installer handles:
+- Dependency installation (Docker, nginx, Certbot)
+- SSL certificate generation
+- Domain configuration and DNS verification
+- Service deployment via Docker Compose
+- nginx reverse proxy setup
+
+**Supports:**
+- Ubuntu 20.04+
+- Debian 11+
+- RHEL 8+
+
+### Docker Compose
+
+Manual deployment using Docker Compose:
+
+```bash
+git clone https://github.com/StellarStackOSS/StellarStack.git
+cd StellarStack
+cp .env.example .env
+# Edit .env with your configuration
+docker-compose up -d
+```
+
+See [Docker Compose Setup](/deployment/docker-compose) for detailed instructions.
+
+### Manual Installation
+
+For custom deployments or non-Ubuntu systems:
+
+1. Install dependencies (Docker, PostgreSQL, nginx)
+2. Configure environment variables
+3. Deploy containers
+4. Set up reverse proxy
+5. Generate SSL certificates
+
+Refer to the [Environment Variables](/deployment/environment-variables) and [Production Checklist](/deployment/production-checklist) guides.
+
+## System Requirements
+
+### Minimum Requirements
+- **OS:** Ubuntu 20.04+, Debian 11+, or RHEL 8+
+- **RAM:** 2GB (4GB+ recommended)
+- **Disk:** 20GB available space
+- **CPU:** 2 cores recommended
+
+### Software Dependencies
+- **Docker** and **Docker Compose**
+- **nginx** (reverse proxy)
+- **PostgreSQL** 15+ (can run in container)
+- **Certbot** (optional, for SSL)
+
+### For Daemon Nodes
+Additional requirements when installing the daemon:
+- **Git** (to clone repository)
+- **Rust/Cargo** (to build from source)
+- **Docker network** access for game server containers
+
+## Architecture Overview
+
+StellarStack uses a daemon-per-node architecture:
+
+1. **API Server** (Hono + PostgreSQL)
+   - Central control plane
+   - Authentication and permissions
+   - Server orchestration
+
+2. **Web Panel** (Next.js 15)
+   - Real-time dashboard
+   - WebSocket updates
+   - User interface
+
+3. **Daemon Nodes** (Rust)
+   - One per physical server
+   - Manages Docker containers
+   - Runs game servers
+
+4. **Database** (PostgreSQL + Prisma)
+   - Single source of truth
+   - Row-level security
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose Setup" icon="docker" href="/deployment/docker-compose">
+    Deploy using Docker Compose
+  </Card>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Configure your deployment
+  </Card>
+  <Card title="Production Checklist" icon="list-check" href="/deployment/production-checklist">
+    Production deployment guide
+  </Card>
+</CardGroup>

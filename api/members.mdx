@@ -1,0 +1,707 @@
+---
+title: 'Members'
+description: 'Manage server members (subusers) and invitations with granular permissions'
+---
+
+## Permission System
+
+### Get Permission Definitions
+
+<CodeGroup>
+```http GET /api/servers/:serverId/members/permissions
+GET /api/servers/{serverId}/members/permissions
+```
+</CodeGroup>
+
+Get all available permission definitions organized by category. Public endpoint.
+
+### Response
+
+<ResponseField name="categories" type="array">
+  Array of permission categories
+  
+  <Expandable title="Category Object">
+    <ResponseField name="id" type="string">Category ID</ResponseField>
+    <ResponseField name="name" type="string">Category display name</ResponseField>
+    <ResponseField name="description" type="string">Category description</ResponseField>
+    <ResponseField name="permissions" type="array">Array of permission objects</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "categories": [
+    {
+      "id": "control",
+      "name": "Control",
+      "description": "Server power and control",
+      "permissions": [
+        {
+          "id": "control.start",
+          "name": "Start Server",
+          "description": "Start the server"
+        },
+        {
+          "id": "control.stop",
+          "name": "Stop Server",
+          "description": "Stop the server"
+        },
+        {
+          "id": "control.restart",
+          "name": "Restart Server",
+          "description": "Restart the server"
+        }
+      ]
+    },
+    {
+      "id": "files",
+      "name": "Files",
+      "description": "File management",
+      "permissions": [
+        {
+          "id": "files.read",
+          "name": "Read Files",
+          "description": "View and download files"
+        },
+        {
+          "id": "files.write",
+          "name": "Write Files",
+          "description": "Create and edit files"
+        },
+        {
+          "id": "files.delete",
+          "name": "Delete Files",
+          "description": "Delete files and directories"
+        }
+      ]
+    }
+  ]
+}
+```
+</ResponseExample>
+
+---
+
+## Member Management
+
+### List Members
+
+<CodeGroup>
+```http GET /api/servers/:serverId/members
+GET /api/servers/{serverId}/members
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+List all members (subusers) of a server.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.read` permission.
+
+#### Response
+
+<ResponseField name="members" type="array">
+  Array of member objects
+  
+  <Expandable title="Member Object">
+    <ResponseField name="id" type="string">Member UUID</ResponseField>
+    <ResponseField name="userId" type="string">User UUID</ResponseField>
+    <ResponseField name="user" type="object">User information</ResponseField>
+    <ResponseField name="permissions" type="array">Array of permission strings</ResponseField>
+    <ResponseField name="createdAt" type="string">ISO 8601 timestamp</ResponseField>
+    <ResponseField name="updatedAt" type="string">ISO 8601 timestamp</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "member-1",
+    "userId": "user-123",
+    "user": {
+      "id": "user-123",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "image": "https://..."
+    },
+    "permissions": [
+      "control.start",
+      "control.stop",
+      "control.restart",
+      "console.read",
+      "console.write",
+      "files.read"
+    ],
+    "createdAt": "2024-01-15T12:00:00Z",
+    "updatedAt": "2024-01-15T12:00:00Z"
+  }
+]
+```
+</ResponseExample>
+
+---
+
+### Get Member
+
+<CodeGroup>
+```http GET /api/servers/:serverId/members/:memberId
+GET /api/servers/{serverId}/members/{memberId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get detailed information about a specific member.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+<ParamField path="memberId" type="string" required>
+  Member UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.read` permission.
+
+#### Errors
+
+- `404` - Member not found
+
+---
+
+### Update Member Permissions
+
+<CodeGroup>
+```http PATCH /api/servers/:serverId/members/:memberId
+PATCH /api/servers/{serverId}/members/{memberId}
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Update a member's permissions.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+<ParamField path="memberId" type="string" required>
+  Member UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.update` permission.
+
+#### Request Body
+
+<ParamField body="permissions" type="array" required>
+  Array of permission strings (at least one required)
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "permissions": [
+    "control.start",
+    "control.stop",
+    "console.read",
+    "console.write",
+    "files.read",
+    "files.write"
+  ]
+}
+```
+</RequestExample>
+
+#### Response
+
+Returns the updated member object.
+
+#### Errors
+
+- `400` - Validation failed (permissions array must have at least one item)
+- `404` - Member not found
+
+---
+
+### Remove Member
+
+<CodeGroup>
+```http DELETE /api/servers/:serverId/members/:memberId
+DELETE /api/servers/{serverId}/members/{memberId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Remove a member from the server.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+<ParamField path="memberId" type="string" required>
+  Member UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.delete` permission.
+
+#### Response
+
+```json
+{ "success": true }
+```
+
+#### Errors
+
+- `404` - Member not found
+
+---
+
+## Invitation Management
+
+### List Invitations
+
+<CodeGroup>
+```http GET /api/servers/:serverId/invitations
+GET /api/servers/{serverId}/invitations
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+List all pending invitations for a server.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.read` permission.
+
+#### Response
+
+<ResponseField name="invitations" type="array">
+  Array of invitation objects (only pending, non-expired invitations)
+  
+  <Expandable title="Invitation Object">
+    <ResponseField name="id" type="string">Invitation UUID</ResponseField>
+    <ResponseField name="email" type="string">Invitee email address</ResponseField>
+    <ResponseField name="permissions" type="array">Permissions to grant on acceptance</ResponseField>
+    <ResponseField name="inviter" type="object">User who sent the invitation</ResponseField>
+    <ResponseField name="expiresAt" type="string">ISO 8601 timestamp (7 days from creation)</ResponseField>
+    <ResponseField name="createdAt" type="string">ISO 8601 timestamp</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "inv-1",
+    "email": "newuser@example.com",
+    "permissions": ["control.start", "console.read"],
+    "inviter": {
+      "id": "user-123",
+      "name": "Server Owner",
+      "email": "owner@example.com"
+    },
+    "expiresAt": "2024-01-22T12:00:00Z",
+    "createdAt": "2024-01-15T12:00:00Z"
+  }
+]
+```
+</ResponseExample>
+
+---
+
+### Send Invitation
+
+<CodeGroup>
+```http POST /api/servers/:serverId/invitations
+POST /api/servers/{serverId}/invitations
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+</CodeGroup>
+
+Send an invitation to a user to join the server.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.create` permission.
+
+#### Request Body
+
+<ParamField body="email" type="string" required>
+  Email address to invite
+</ParamField>
+
+<ParamField body="permissions" type="array" required>
+  Permissions to grant (at least one required)
+</ParamField>
+
+<RequestExample>
+```json
+{
+  "email": "newuser@example.com",
+  "permissions": [
+    "control.start",
+    "control.stop",
+    "console.read",
+    "console.write"
+  ]
+}
+```
+</RequestExample>
+
+#### Response
+
+<ResponseField name="id" type="string">
+  Invitation UUID
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  Invitee email
+</ResponseField>
+
+<ResponseField name="permissions" type="array">
+  Granted permissions
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  Invitation token (for manual sharing)
+</ResponseField>
+
+<ResponseField name="acceptUrl" type="string">
+  Complete acceptance URL
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string">
+  Expiration timestamp
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  Creation timestamp
+</ResponseField>
+
+<ResponseExample>
+```json
+{
+  "id": "inv-2",
+  "email": "newuser@example.com",
+  "permissions": ["control.start", "control.stop", "console.read", "console.write"],
+  "token": "unique-invitation-token",
+  "acceptUrl": "https://stellarstack.io/servers/invitation/unique-invitation-token",
+  "expiresAt": "2024-01-22T14:00:00Z",
+  "createdAt": "2024-01-15T14:00:00Z"
+}
+```
+</ResponseExample>
+
+#### Errors
+
+- `400` - User already a member, or pending invitation already exists
+
+---
+
+### Cancel Invitation
+
+<CodeGroup>
+```http DELETE /api/servers/:serverId/invitations/:invitationId
+DELETE /api/servers/{serverId}/invitations/{invitationId}
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Cancel a pending invitation.
+
+#### Path Parameters
+
+<ParamField path="serverId" type="string" required>
+  Server UUID
+</ParamField>
+
+<ParamField path="invitationId" type="string" required>
+  Invitation UUID
+</ParamField>
+
+#### Authentication
+
+Requires server access and `users.delete` permission.
+
+#### Response
+
+```json
+{ "success": true }
+```
+
+#### Errors
+
+- `404` - Invitation not found
+
+---
+
+## User Invitation Handling
+
+These endpoints are used by invited users to view and accept invitations.
+
+### Get Invitation Details
+
+<CodeGroup>
+```http GET /api/servers/members/invitation/:token
+GET /api/servers/members/invitation/{token}
+```
+</CodeGroup>
+
+Get invitation details by token (for acceptance page). No authentication required.
+
+#### Path Parameters
+
+<ParamField path="token" type="string" required>
+  Invitation token
+</ParamField>
+
+#### Response
+
+<ResponseExample>
+```json
+{
+  "id": "inv-1",
+  "server": {
+    "id": "server-uuid",
+    "name": "My Minecraft Server"
+  },
+  "inviter": {
+    "name": "Server Owner",
+    "email": "owner@example.com"
+  },
+  "permissions": ["control.start", "console.read"],
+  "expiresAt": "2024-01-22T12:00:00Z"
+}
+```
+</ResponseExample>
+
+#### Errors
+
+- `400` - Invitation already used, declined, or expired
+- `404` - Invitation not found
+
+---
+
+### Accept Invitation
+
+<CodeGroup>
+```http POST /api/servers/members/invitation/:token/accept
+POST /api/servers/members/invitation/{token}/accept
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Accept an invitation and become a server member.
+
+#### Path Parameters
+
+<ParamField path="token" type="string" required>
+  Invitation token
+</ParamField>
+
+#### Authentication
+
+Requires user to be logged in.
+
+#### Response
+
+```json
+{
+  "success": true,
+  "server": {
+    "id": "server-uuid",
+    "name": "My Minecraft Server"
+  }
+}
+```
+
+#### Errors
+
+- `400` - Already a member, already used/declined, expired, or user is the owner
+- `401` - Not logged in
+- `404` - Invitation not found
+
+---
+
+### Decline Invitation
+
+<CodeGroup>
+```http POST /api/servers/members/invitation/:token/decline
+POST /api/servers/members/invitation/{token}/decline
+```
+</CodeGroup>
+
+Decline an invitation. No authentication required.
+
+#### Path Parameters
+
+<ParamField path="token" type="string" required>
+  Invitation token
+</ParamField>
+
+#### Response
+
+```json
+{ "success": true }
+```
+
+#### Errors
+
+- `400` - Already used or declined
+- `404` - Invitation not found
+
+---
+
+### Get My Memberships
+
+<CodeGroup>
+```http GET /api/servers/members/my-memberships
+GET /api/servers/members/my-memberships
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get all servers where the authenticated user is a member.
+
+#### Authentication
+
+Requires user to be logged in.
+
+#### Response
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "member-1",
+    "server": {
+      "id": "server-1",
+      "name": "Minecraft Server",
+      "status": "RUNNING",
+      "node": {
+        "displayName": "US East 1",
+        "location": {
+          "name": "New York"
+        }
+      }
+    },
+    "permissions": ["control.start", "console.read"],
+    "createdAt": "2024-01-15T12:00:00Z"
+  }
+]
+```
+</ResponseExample>
+
+---
+
+### Get My Pending Invitations
+
+<CodeGroup>
+```http GET /api/servers/members/my-invitations
+GET /api/servers/members/my-invitations
+Authorization: Bearer {token}
+```
+</CodeGroup>
+
+Get all pending invitations for the authenticated user.
+
+#### Authentication
+
+Requires user to be logged in.
+
+#### Response
+
+<ResponseExample>
+```json
+[
+  {
+    "id": "inv-1",
+    "token": "invitation-token",
+    "server": {
+      "id": "server-1",
+      "name": "Minecraft Server"
+    },
+    "inviter": {
+      "name": "Server Owner"
+    },
+    "permissions": ["control.start", "console.read"],
+    "expiresAt": "2024-01-22T12:00:00Z",
+    "createdAt": "2024-01-15T12:00:00Z"
+  }
+]
+```
+</ResponseExample>
+
+---
+
+## Common Permission Nodes
+
+Here are commonly used permission nodes:
+
+### Control
+- `control.start` - Start the server
+- `control.stop` - Stop the server
+- `control.restart` - Restart the server
+- `control.kill` - Force kill the server
+
+### Console
+- `console.read` - View console output
+- `console.write` - Send commands to console
+
+### Files
+- `files.read` - View and download files
+- `files.write` - Create and edit files
+- `files.delete` - Delete files
+- `files.archive` - Create archives
+
+### Backups
+- `backups.read` - View backups
+- `backups.create` - Create backups
+- `backups.restore` - Restore backups
+- `backups.delete` - Delete backups
+- `backups.download` - Download backups
+
+### Settings
+- `settings.read` - View server settings
+- `settings.update` - Modify server settings
+- `settings.rename` - Rename server
+- `settings.reinstall` - Reinstall server
+
+### Users
+- `users.read` - View members
+- `users.create` - Invite members
+- `users.update` - Update member permissions
+- `users.delete` - Remove members

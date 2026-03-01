@@ -1,0 +1,198 @@
+---
+title: Quick Start
+description: Get up and running with StellarStack in minutes
+---
+
+This guide will take you from a fresh installation to your first login and initial setup.
+
+## Access the Panel
+
+Depending on your installation method:
+
+<Tabs>
+  <Tab title="Development">
+    After running `pnpm dev`, access the panel at:
+
+    ```
+    http://localhost:3000
+    ```
+
+    The API will be running at:
+    ```
+    http://localhost:3001
+    ```
+  </Tab>
+
+  <Tab title="Production (Ubuntu Installer)">
+    Access the panel at the domain you configured during installation:
+
+    ```
+    https://your-panel-domain.com
+    ```
+
+    If you didn't set up SSL, use:
+    ```
+    http://your-panel-domain.com
+    ```
+  </Tab>
+
+  <Tab title="Docker Compose">
+    Access the panel at the configured host:
+
+    ```
+    http://localhost:3000
+    ```
+
+    Or use your server's IP address:
+    ```
+    http://your-server-ip:3000
+    ```
+  </Tab>
+</Tabs>
+
+## Create Your First Account
+
+<Steps>
+  <Step title="Navigate to the registration page">
+    When you first access StellarStack, you'll be greeted with the login page. Click the **Sign Up** or **Create Account** button to create your first user.
+
+    <Note>
+      The first account created will automatically receive administrator privileges.
+    </Note>
+  </Step>
+
+  <Step title="Fill in account details">
+    Provide the following information:
+    - **Email address** - Used for login and notifications
+    - **Password** - Choose a strong password (minimum 8 characters)
+    - **Confirm password**
+
+    If you configured Cloudflare Turnstile, you'll also need to complete the CAPTCHA.
+  </Step>
+
+  <Step title="Complete registration">
+    Click **Create Account** to register. You'll be automatically logged in and redirected to the dashboard.
+  </Step>
+</Steps>
+
+## Alternative: OAuth Login
+
+If you configured OAuth providers (Google, GitHub, or Discord), you can sign up using those services:
+
+<Steps>
+  <Step title="Select OAuth provider">
+    On the login page, click one of the OAuth provider buttons:
+    - **Sign in with Google**
+    - **Sign in with GitHub**
+    - **Sign in with Discord**
+  </Step>
+
+  <Step title="Authorize the application">
+    You'll be redirected to the provider's authorization page. Grant the requested permissions to continue.
+  </Step>
+
+  <Step title="Complete setup">
+    After authorization, you'll be redirected back to StellarStack and automatically logged in.
+  </Step>
+</Steps>
+
+<Note>
+  To enable OAuth login, you must configure the respective client IDs and secrets in your environment variables. See the [Configuration](/getting-started/configuration) guide for details.
+</Note>
+
+## Explore the Dashboard
+
+Once logged in, you'll see the main dashboard with:
+
+- **Server Overview** - List of all your game servers (empty for new installations)
+- **Resource Usage** - CPU, memory, and disk usage across all nodes
+- **Recent Activity** - Log of recent actions and events
+- **Quick Actions** - Shortcuts to common tasks
+
+## Verify Your Installation
+
+Before creating your first game server, verify that everything is working:
+
+<AccordionGroup>
+  <Accordion title="Check API connectivity">
+    The web panel should communicate with the API server. If you see connection errors:
+
+    1. Verify the API is running (check `http://localhost:3001/health` in development)
+    2. Check your `NEXT_PUBLIC_API_URL` environment variable
+    3. Review browser console for CORS or network errors
+  </Accordion>
+
+  <Accordion title="Verify database connection">
+    The panel should load without database errors. If you see errors:
+
+    1. Verify PostgreSQL is running
+    2. Check the `DATABASE_URL` in your API `.env` file
+    3. Ensure the database was initialized (`pnpm db:push`)
+  </Accordion>
+
+  <Accordion title="Test authentication">
+    Log out and log back in to verify:
+
+    1. Sessions are persisting correctly
+    2. Cookies are being set properly
+    3. Authentication redirects work as expected
+  </Accordion>
+</AccordionGroup>
+
+## Enable Two-Factor Authentication (Recommended)
+
+<Steps>
+  <Step title="Navigate to account settings">
+    Click your profile icon in the top right corner and select **Account Settings**.
+  </Step>
+
+  <Step title="Enable 2FA">
+    In the Security section:
+    1. Click **Enable Two-Factor Authentication**
+    2. Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
+    3. Enter the verification code from your app
+    4. Save your backup codes in a secure location
+  </Step>
+
+  <Step title="Verify 2FA setup">
+    Log out and log back in. You should now be prompted for your 2FA code after entering your password.
+  </Step>
+</Steps>
+
+<Warning>
+  Store your backup codes securely! If you lose access to your authenticator app, these codes are the only way to regain access to your account.
+</Warning>
+
+## Enable Passkeys (Optional)
+
+For passwordless authentication, you can set up passkeys:
+
+<Steps>
+  <Step title="Go to security settings">
+    Navigate to **Account Settings** > **Security**.
+  </Step>
+
+  <Step title="Add a passkey">
+    Click **Add Passkey** and follow your browser's prompts to create a passkey using:
+    - Your device's biometric authentication (fingerprint, Face ID, etc.)
+    - A security key (YubiKey, etc.)
+    - Your device's PIN or password
+  </Step>
+
+  <Step title="Test passkey login">
+    Log out and try logging in with your passkey instead of your password.
+  </Step>
+</Steps>
+
+## Next Steps
+
+Now that you're logged in and familiar with the interface:
+
+<CardGroup cols={2}>
+  <Card title="Create Your First Server" icon="server" href="/getting-started/first-server">
+    Set up and launch your first game server
+  </Card>
+  <Card title="Configure Settings" icon="gear" href="/getting-started/configuration">
+    Customize StellarStack to your needs
+  </Card>
+</CardGroup>

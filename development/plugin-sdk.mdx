@@ -1,0 +1,429 @@
+---
+title: Plugin SDK Overview
+description: Getting started with the StellarStack Plugin SDK for building custom plugins
+---
+
+# Plugin SDK Overview
+
+The StellarStack Plugin SDK enables you to extend the platform with custom functionality, UI components, and integrations. Build plugins that add new features to your game servers, integrate with third-party services, or automate complex workflows.
+
+## What is a Plugin?
+
+A StellarStack plugin is a package that extends the platform's functionality. Plugins can:
+
+- **Hook into server lifecycle events** - React to server starts, stops, restarts, and more
+- **Add custom UI tabs and widgets** - Extend the web interface with new pages and components
+- **Execute automated actions** - Download files, modify configurations, send commands
+- **Store persistent data** - Use the built-in key-value storage system
+- **Integrate external services** - Connect to APIs like CurseForge, Modrinth, or Steam Workshop
+
+## Installation
+
+Install the Plugin SDK in your project:
+
+```bash
+npm install @stellarstack/plugin-sdk
+```
+
+For TypeScript projects, types are included automatically.
+
+## Creating Your First Plugin
+
+Every plugin must extend the `StellarPlugin` base class and implement the required lifecycle methods.
+
+### Basic Plugin Structure
+
+```typescript plugin.ts
+import { StellarPlugin, PluginContext, PluginManifest } from "@stellarstack/plugin-sdk";
+
+export default class MyPlugin extends StellarPlugin {
+  manifest: PluginManifest = {
+    id: "my-first-plugin",
+    name: "My First Plugin",
+    version: "1.0.0",
+    description: "A simple example plugin",
+    author: "Your Name",
+    license: "MIT",
+    category: "utility",
+    gameTypes: ["*"], // All game types
+    permissions: ["console.send"],
+  };
+
+  async onEnable(context: PluginContext): Promise<void> {
+    context.log.info("Plugin enabled!");
+    
+    // Register event hooks
+    context.on("server:afterStart", async (ctx) => {
+      context.log.info(`Server ${ctx.serverId} has started`);
+    });
+  }
+
+  async onDisable(context: PluginContext): Promise<void> {
+    context.log.info("Plugin disabled!");
+  }
+}
+```
+
+### Plugin Manifest
+
+The manifest defines your plugin's metadata and capabilities:
+
+```typescript
+interface PluginManifest {
+  // Required fields
+  id: string;                    // Unique identifier (lowercase, hyphens)
+  name: string;                  // Display name
+  version: string;               // Semantic version (e.g., "1.0.0")
+  description: string;           // Short description
+  author: string;                // Author name
+  
+  // Optional metadata
+  license?: string;              // License identifier (default: "MIT")
+  homepage?: string;             // Plugin homepage URL
+  repository?: string;           // Source repository URL
+  icon?: string;                 // Icon name or path
+  minVersion?: string;           // Minimum StellarStack version
+  
+  // Capabilities
+  category?: PluginCategory;     // Plugin category
+  gameTypes?: string[];          // Supported game types ("*" for all)
+  permissions?: string[];        // Required permissions
+  hooks?: string[];              // Subscribed hook events
+  
+  // UI extensions
+  ui?: PluginUIDefinition;
+  
+  // Configuration
+  configSchema?: object;         // JSON Schema for settings
+  defaultConfig?: object;        // Default configuration values
+  
+  // Actions
+  actions?: ExtensionAction[];   // Executable actions
+}
+```
+
+## Plugin Categories
+
+Choose the most appropriate category for your plugin:
+
+- `game-management` - Server management and administration
+- `modding` - Mod/modpack installation and management
+- `monitoring` - Metrics, analytics, and monitoring
+- `automation` - Scheduled tasks and automation
+- `integration` - Third-party service integrations
+- `security` - Security and access control
+- `utility` - General utilities
+- `theme` - UI themes and customization
+- `other` - Uncategorized
+
+## Game Type Matching
+
+Specify which game servers your plugin supports:
+
+```typescript
+// All game types
+gameTypes: ["*"]
+
+// Specific games
+gameTypes: ["minecraft", "rust", "valheim"]
+
+// Minecraft servers (matches Paper, Forge, Fabric, etc.)
+gameTypes: ["minecraft"]
+```
+
+StellarStack automatically matches plugins to servers based on blueprint names:
+
+- `"minecraft"` matches: Paper, Spigot, Forge, Fabric, Vanilla, etc.
+- `"rust"` matches: Rust servers
+- `"valheim"` matches: Valheim servers
+- `"ark"` matches: ARK: Survival Evolved servers
+
+## Permissions System
+
+Plugins must declare required permissions in their manifest:
+
+```typescript
+permissions: [
+  "files.*",           // All file operations
+  "console.send",      // Send console commands
+  "control.start",     // Start servers
+  "control.stop",      // Stop servers
+  "control.restart",   // Restart servers
+  "backups.create",    // Create backups
+  "activity.read",     // Read activity logs
+]
+```
+
+Permissions are enforced at runtime. Attempting operations without the required permission will throw an error.
+
+## Plugin Context
+
+The `PluginContext` object provides access to the StellarStack API:
+
+```typescript
+context.pluginId       // Your plugin's ID
+context.manifest       // Your plugin manifest
+context.config         // Plugin configuration
+context.api            // StellarStack API client
+context.log            // Scoped logger
+
+// Hook registration
+context.on(event, handler, priority)
+context.addFilter(name, filter, priority)
+```
+
+## Plugin API
+
+Access StellarStack functionality through `context.api`:
+
+```typescript
+// Server operations
+context.api.servers.get(serverId)
+context.api.servers.list()
+context.api.servers.sendCommand(serverId, command)
+context.api.servers.getStatus(serverId)
+
+// File operations
+context.api.files.list(serverId, path)
+context.api.files.read(serverId, path)
+context.api.files.write(serverId, path, content)
+context.api.files.delete(serverId, path)
+context.api.files.downloadUrl(serverId, url, destPath)
+
+// Plugin storage
+context.api.storage.get(key)
+context.api.storage.set(key, value)
+context.api.storage.delete(key)
+context.api.storage.keys()
+
+// HTTP client
+context.api.http.get(url, headers)
+context.api.http.post(url, body, headers)
+
+// Notifications
+context.api.notify.toast(serverId, message, type)
+```
+
+## Configuration Schema
+
+Define plugin settings using JSON Schema:
+
+```typescript
+configSchema: {
+  type: "object",
+  properties: {
+    apiKey: {
+      type: "string",
+      title: "API Key",
+      description: "Your API key for the service",
+      sensitive: true,  // Hides value in UI
+    },
+    autoRestart: {
+      type: "boolean",
+      title: "Auto-Restart",
+      description: "Automatically restart after operations",
+      default: true,
+    },
+    maxRetries: {
+      type: "number",
+      title: "Max Retries",
+      minimum: 1,
+      maximum: 10,
+      default: 3,
+    },
+  },
+  required: ["apiKey"],
+}
+```
+
+Access configuration values:
+
+```typescript
+const apiKey = context.config.apiKey as string;
+const autoRestart = context.config.autoRestart as boolean;
+```
+
+## Lifecycle Hooks
+
+### onEnable
+
+Called when the plugin is enabled. Use this to:
+
+- Register event hooks
+- Initialize resources
+- Set up API routes
+- Load persistent data
+
+```typescript
+async onEnable(context: PluginContext): Promise<void> {
+  context.on("server:afterStart", async (ctx) => {
+    // Handle server start event
+  });
+}
+```
+
+### onDisable
+
+Called when the plugin is disabled. Use this to:
+
+- Clean up resources
+- Save state
+- Cancel scheduled tasks
+
+Note: Hook handlers are automatically unregistered.
+
+```typescript
+async onDisable(context: PluginContext): Promise<void> {
+  context.log.info("Cleaning up resources...");
+}
+```
+
+### onConfigUpdate (Optional)
+
+Called when plugin configuration is updated:
+
+```typescript
+async onConfigUpdate(
+  context: PluginContext,
+  oldConfig: Record<string, unknown>,
+  newConfig: Record<string, unknown>
+): Promise<void> {
+  if (oldConfig.apiKey !== newConfig.apiKey) {
+    context.log.info("API key changed, reconnecting...");
+  }
+}
+```
+
+### validateConfig (Optional)
+
+Validate configuration before it's applied:
+
+```typescript
+validateConfig(config: Record<string, unknown>): string | null {
+  if (!config.apiKey || (config.apiKey as string).length < 10) {
+    return "API key must be at least 10 characters";
+  }
+  return null; // Valid
+}
+```
+
+## Storage System
+
+Plugins have access to a scoped key-value storage system:
+
+```typescript
+// Store data
+await context.api.storage.set("lastSync", Date.now());
+await context.api.storage.set("settings", { enabled: true });
+
+// Retrieve data
+const lastSync = await context.api.storage.get<number>("lastSync");
+const settings = await context.api.storage.get<object>("settings");
+
+// List all keys
+const keys = await context.api.storage.keys();
+
+// Delete data
+await context.api.storage.delete("lastSync");
+```
+
+Storage is automatically scoped to your plugin. Data persists across server restarts.
+
+## Logging
+
+Use the scoped logger for consistent output:
+
+```typescript
+context.log.info("Operation completed");
+context.log.warn("Deprecated feature used");
+context.log.error("Operation failed", error);
+context.log.debug("Verbose debugging info");
+```
+
+All logs are automatically prefixed with `[Plugin:your-plugin-id]`.
+
+## Error Handling
+
+Always handle errors in your plugin code:
+
+```typescript
+context.on("server:afterStart", async (ctx) => {
+  try {
+    await context.api.servers.sendCommand(ctx.serverId!, "say Server started!");
+  } catch (error) {
+    context.log.error("Failed to send command", error);
+  }
+});
+```
+
+Errors in hook handlers are caught and logged automatically, but won't crash the platform.
+
+## Next Steps
+
+- [Plugin Hooks](/development/plugin-hooks) - Learn about available events
+- [Plugin UI](/development/plugin-ui) - Create custom UI components
+- [Plugin API Reference](/development/plugin-api) - Complete API documentation
+
+## Example: Complete Plugin
+
+```typescript
+import { StellarPlugin, PluginContext } from "@stellarstack/plugin-sdk";
+
+export default class WelcomePlugin extends StellarPlugin {
+  manifest = {
+    id: "welcome-message",
+    name: "Welcome Message",
+    version: "1.0.0",
+    description: "Sends a welcome message when servers start",
+    author: "StellarStack",
+    category: "automation" as const,
+    permissions: ["console.send"],
+    configSchema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          title: "Welcome Message",
+          default: "Server is now online!",
+        },
+        delay: {
+          type: "number",
+          title: "Delay (seconds)",
+          minimum: 0,
+          maximum: 60,
+          default: 5,
+        },
+      },
+    },
+    defaultConfig: {
+      message: "Server is now online!",
+      delay: 5,
+    },
+  };
+
+  async onEnable(context: PluginContext): Promise<void> {
+    context.log.info("Welcome plugin enabled");
+
+    context.on("server:afterStart", async (ctx) => {
+      const message = context.config.message as string;
+      const delay = (context.config.delay as number) * 1000;
+
+      setTimeout(async () => {
+        try {
+          await context.api.servers.sendCommand(
+            ctx.serverId!,
+            `say ${message}`
+          );
+          context.log.info(`Sent welcome message to ${ctx.serverId}`);
+        } catch (error) {
+          context.log.error("Failed to send welcome message", error);
+        }
+      }, delay);
+    });
+  }
+
+  async onDisable(context: PluginContext): Promise<void> {
+    context.log.info("Welcome plugin disabled");
+  }
+}
+```
